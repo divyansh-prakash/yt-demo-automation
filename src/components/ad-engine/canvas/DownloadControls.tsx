@@ -1,0 +1,40 @@
+import type { ExportFormat } from '../../../types'
+
+interface Props {
+  exportFormat: ExportFormat
+  isExporting: boolean
+  disabled: boolean
+  onExportFormatChange: (format: ExportFormat) => void
+  onExport: (format: ExportFormat) => void
+}
+
+export function DownloadControls({
+  exportFormat,
+  isExporting,
+  disabled,
+  onExportFormatChange,
+  onExport,
+}: Props) {
+  return (
+    <div className="canvas-download-group">
+      <select
+        className="canvas-format-select"
+        value={exportFormat}
+        onChange={e => onExportFormatChange(e.target.value as ExportFormat)}
+        disabled={disabled || isExporting}
+        aria-label="Download format"
+      >
+        <option value="webm">WebM</option>
+        <option value="mp4">MP4</option>
+      </select>
+
+      <button
+        className="tl-btn export canvas-download-btn"
+        onClick={() => onExport(exportFormat)}
+        disabled={disabled || isExporting}
+      >
+        {isExporting ? '⏺ Recording…' : '⬇ Download'}
+      </button>
+    </div>
+  )
+}

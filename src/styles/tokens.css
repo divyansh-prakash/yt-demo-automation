@@ -1,0 +1,112 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+
+/* ── Light theme (default) ── */
+:root {
+  /* Surfaces */
+  --bg:        #e8e8f0;
+  --surface:   #ffffff;
+  --surface2:  #f4f4f8;
+  --surface3:  #ebebf2;
+
+  /* Borders */
+  --border:    #e0e0ea;
+  --border2:   #cacad8;
+
+  /* Text */
+  --text:      #16161e;
+  --text2:     #4e4e6a;
+  --text3:     #9494b0;
+
+  /* Accent */
+  --accent:    #0d9e87;
+  --accent-bg: #e4f5f2;
+  --accent2:   #0a8872;
+
+  /* Status colours */
+  --amber:     #c97a06;
+  --rose:      #d02020;
+  --green:     #158f45;
+  --blue:      #2460e0;
+  --orange:    #d95228;
+
+  /* Context tag colours */
+  --tag1:      #7c3aed;
+  --tag2:      #0891b2;
+  --tag3:      #db2777;
+  --tag4:      #16a34a;
+  --tag5:      #d97706;
+
+  /* Elevation */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+  --shadow:    0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+
+  /* Radii */
+  --radius:    12px;
+  --radius-sm: 8px;
+  --radius-xs: 5px;
+
+  /* Typography */
+  --font: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --mono: 'DM Mono', 'JetBrains Mono', ui-monospace, monospace;
+
+  /* ── Legacy aliases (removed once all CSS is rebuilt) ── */
+  --teal:   var(--accent);
+  --teal2:  var(--accent-bg);
+  --teal3:  var(--accent-bg);
+  --s1:     var(--surface);
+  --s2:     var(--surface2);
+  --s3:     var(--surface3);
+  --bdr:    var(--border);
+  --bdr2:   var(--border2);
+  --muted:  var(--text3);
+  --muted2: var(--text2);
+}
+
+/* ── Dark theme ── */
+[data-theme="dark"] {
+  --bg:        #0e0e18;
+  --surface:   #181825;
+  --surface2:  #202030;
+  --surface3:  #262638;
+  --border:    rgba(255,255,255,0.07);
+  --border2:   rgba(255,255,255,0.13);
+  --text:      #e6e6f2;
+  --text2:     #7878a0;
+  --text3:     #464660;
+  --accent:    #00c4a4;
+  --accent-bg: rgba(0,196,164,0.1);
+  --accent2:   #00a88c;
+  --amber:     #d97706;
+  --rose:      #ef4444;
+  --green:     #22c55e;
+  --blue:      #3b82f6;
+  --orange:    #f97316;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+  --shadow:    0 1px 3px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.5), 0 2px 4px rgba(0,0,0,0.3);
+}
+
+/* ── Global reset ── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+  height: 100%;
+}
+
+body {
+  font-family: var(--font);
+  font-size: 13px;
+  line-height: 1.5;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100%;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  transition: background 0.2s ease, color 0.2s ease;
+}

@@ -1,0 +1,43 @@
+/* ── Header ── */
+.app-header {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(7,7,15,0.92);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--bdr);
+  display: flex; align-items: center; gap: 14px;
+  padding: 10px 20px; flex-shrink: 0;
+}
+.hpip {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--teal); box-shadow: 0 0 12px var(--teal);
+  animation: pip 2s ease-in-out infinite; flex-shrink: 0;
+}
+@keyframes pip { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.3;transform:scale(.6)} }
+.app-title { font-size: 11px; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; color: var(--teal); }
+.mode-tabs { display: flex; gap: 4px; margin-left: auto; }
+.mtab {
+  padding: 6px 16px; border-radius: 8px; border: 1px solid var(--bdr2);
+  font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  cursor: pointer; background: transparent; color: var(--muted2);
+  transition: all .18s; font-family: var(--font);
+}
+.mtab:hover { color: var(--text); border-color: var(--bdr2); background: var(--s2); }
+.mtab.on { background: var(--teal); color: #000; border-color: var(--teal); }
+.hbadge { font-family: var(--mono); font-size: 10px; color: var(--muted); background: var(--s2); border: 1px solid var(--bdr); padding: 4px 10px; border-radius: 20px; }
+
+/* ── Mode visibility ── */
+.mode { display: none; position: relative; z-index: 1; }
+.mode.on { display: block; }
+
+/* ── Toast ── */
+.toast {
+  position: fixed; bottom: 28px; left: 50%;
+  transform: translateX(-50%) translateY(16px);
+  background: var(--green); color: #000;
+  font-family: var(--font); font-size: 13px; font-weight: 700;
+  padding: 10px 24px; border-radius: 30px;
+  box-shadow: 0 4px 24px rgba(57,232,143,.3);
+  opacity: 0; transition: opacity .3s, transform .3s;
+  pointer-events: none; z-index: 9999; white-space: nowrap;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
