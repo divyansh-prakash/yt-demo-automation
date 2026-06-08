@@ -1,7 +1,10 @@
+import { useState } from 'react'
 import { SidebarCard } from '../shared/SidebarCard'
 import { SidebarSection } from '../shared/SidebarSection'
 import { SliderField } from '../../shared/SliderField'
 import type { AdEngineConfig } from '../../../types'
+
+const W = 1280, H = 720
 
 interface Props {
   config: AdEngineConfig
@@ -10,6 +13,16 @@ interface Props {
 }
 
 export function SlideBannerCard({ config: c, setConfig, defaultCollapsed }: Props) {
+  const [maskUnit, setMaskUnit] = useState<'px' | '%'>('px')
+
+  const toDisplay  = (px: number, axis: 'x' | 'y') =>
+    maskUnit === '%' ? +((px / (axis === 'x' ? W : H)) * 100).toFixed(1) : px
+  const fromInput  = (v: number, axis: 'x' | 'y') =>
+    maskUnit === '%' ? Math.round(v / 100 * (axis === 'x' ? W : H)) : v
+
+  const fmt = (px: number, axis: 'x' | 'y') =>
+    maskUnit === '%' ? `${toDisplay(px, axis)}%` : `${px}px`
+
   return (
     <SidebarCard
       icon="🎞" iconBg="#fff0e6"
@@ -21,22 +34,35 @@ export function SlideBannerCard({ config: c, setConfig, defaultCollapsed }: Prop
         title="Mask region"
         tooltip="The rectangular area where the slide animation happens. Match this to the suggested videos panel in your recording."
       >
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 6 }}>
+          <button
+            className={`unit-toggle${maskUnit === 'px' ? ' active' : ''}`}
+            onClick={e => { e.stopPropagation(); setMaskUnit(u => u === 'px' ? '%' : 'px') }}
+            title="Toggle between pixel and percentage values"
+          >
+            {maskUnit === 'px' ? 'px' : '%'}
+          </button>
+        </div>
         <div className="ctrl-grid">
           <div className="ctrl-field">
-            <div className="ctrl-label">Left <span className="ctrl-val">{c.maskX}px</span></div>
-            <input type="number" className="ctrl-number" value={c.maskX} min={0} onChange={e => setConfig({ maskX: +e.target.value })} />
+            <div className="ctrl-label">Left <span className="ctrl-val">{fmt(c.maskX, 'x')}</span></div>
+            <input type="number" className="ctrl-number" value={toDisplay(c.maskX, 'x')} min={0}
+              onChange={e => setConfig({ maskX: fromInput(+e.target.value, 'x') })} />
           </div>
           <div className="ctrl-field">
-            <div className="ctrl-label">Top <span className="ctrl-val">{c.maskY}px</span></div>
-            <input type="number" className="ctrl-number" value={c.maskY} min={0} onChange={e => setConfig({ maskY: +e.target.value })} />
+            <div className="ctrl-label">Top <span className="ctrl-val">{fmt(c.maskY, 'y')}</span></div>
+            <input type="number" className="ctrl-number" value={toDisplay(c.maskY, 'y')} min={0}
+              onChange={e => setConfig({ maskY: fromInput(+e.target.value, 'y') })} />
           </div>
           <div className="ctrl-field">
-            <div className="ctrl-label">Width <span className="ctrl-val">{c.maskW}px</span></div>
-            <input type="number" className="ctrl-number" value={c.maskW} min={1} onChange={e => setConfig({ maskW: +e.target.value })} />
+            <div className="ctrl-label">Width <span className="ctrl-val">{fmt(c.maskW, 'x')}</span></div>
+            <input type="number" className="ctrl-number" value={toDisplay(c.maskW, 'x')} min={1}
+              onChange={e => setConfig({ maskW: Math.max(1, fromInput(+e.target.value, 'x')) })} />
           </div>
           <div className="ctrl-field">
-            <div className="ctrl-label">Height <span className="ctrl-val">{c.maskH}px</span></div>
-            <input type="number" className="ctrl-number" value={c.maskH} min={1} onChange={e => setConfig({ maskH: +e.target.value })} />
+            <div className="ctrl-label">Height <span className="ctrl-val">{fmt(c.maskH, 'y')}</span></div>
+            <input type="number" className="ctrl-number" value={toDisplay(c.maskH, 'y')} min={1}
+              onChange={e => setConfig({ maskH: Math.max(1, fromInput(+e.target.value, 'y')) })} />
           </div>
         </div>
       </SidebarSection>

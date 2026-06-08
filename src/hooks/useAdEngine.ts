@@ -10,18 +10,17 @@ export const DEFAULT_CONFIG: AdEngineConfig = {
   avX: 50, avY: 50, avScale: 80, avRadius: 0,
   bnX: 50, bnY: 85, bnScale: 60,
   tmX: 8, tmY: 88, tmFont: 14,
-  tsMin: 0, tsSec: 5, adDur: 15,
-  bannerMin: 0, bannerSec: 3,
+  tsMin: 0, tsSec: 10, adDur: 15,
   tags: ['Match Highlights', 'World Cup Lithuania', 'FIFA Futsal World'],
-  maskX: 0, maskY: 360, maskW: 1280, maskH: 360,
-  slideAmt: 40, slideDur: 0.6, slideDir: 'up', easing: 'ease',
-  slideImgScale: 1, slideImgOffX: 0, slideImgOffY: 0,
-  panelColor: '#ffffff', panelOpacity: 1, panelHeight: 0, panelOffset: 0,
+  maskX: 850, maskY: 0, maskW: 430, maskH: 720,
+  slideAmt: 120, slideDur: 0.6, slideDir: 'down', easing: 'ease',
+  slideImgScale: 0.5, slideImgOffX: 0, slideImgOffY: 0,
+  panelColor: '#ffffff', panelOpacity: 1, panelHeight: 120, panelOffset: 0,
 }
 
 const DEFAULT_RT: RuntimeState = {
   ctxUrl: null, adUrl: null, bannerImg: null, slideImg: null,
-  ctxDur: 0, adTriggerSec: 0, bannerTriggerSec: 3,
+  ctxDur: 0, adTriggerSec: 0, bannerTriggerSec: 0,
   adDur: 15, adRemaining: 15,
   adPlaying: false, adTriggered: false, bannerTriggered: false,
   scanning: false, scanAlpha: 0, scanLineY: 0, scanDir: 1,
@@ -56,6 +55,7 @@ export function useAdEngine(showToast: (msg: string, options?: { color?: string,
 
   // ── Stable refs ──────────────────────────────────────────────────────────
   const canvasRef     = useRef<HTMLCanvasElement>(null)
+  const scratchCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const ctxVidRef     = useRef<HTMLVideoElement>(null)
   const adVidRef      = useRef<HTMLVideoElement>(null)
   const ST            = useRef<RuntimeState>({ ...DEFAULT_RT })
@@ -244,75 +244,99 @@ export function useAdEngine(showToast: (msg: string, options?: { color?: string,
     ctx.restore()
   }
 
+  // ── Slide banner ─────────────────────────────────────────────────────────
+  // Called twice per frame: before ad overlay (to capture clean video) and
+  // after (for the image). Both paths handled here via the `phase` argument.
   function drawSlideBanner(ctx: CanvasRenderingContext2D) {
     const c = configRef.current
     const s = ST.current
     const { maskX: mx, maskY: my, maskW: mw, maskH: mh } = c
-
-    // Nothing to show if no slide image has been uploaded.
-    // The panel and mask outline are still drawn in idle preview once
-    // an image is uploaded, so the user can position everything.
-    const hasSlideContent = !!(ST.current.slideImg)
-    if (!hasSlideContent) return
-
-    // Show slide content in two situations:
-    //  - Idle/preview: always show fully animated so user can position it
-    //  - Demo: only when the banner has actually been triggered
+    const panelH = c.panelHeight > 0 ? c.panelHeight : mh
     const isIdlePreview = !s.playing && !s.scanning
-    const showContent   = isIdlePreview || s.bannerTriggered
 
-    if (showContent) {
-      // In idle preview show at full animation (sP=1) so placement is visible.
-      // During demo compute real progress from the trigger timestamp.
-      const elapsed = isIdlePreview
-        ? c.slideDur
-        : Math.max(0, currentTimeRef.current - s.bannerTriggerSec)
-      const sP = Math.min(1, Math.max(0, elapsed / Math.max(0.001, c.slideDur)))
-      const ep = applyEasing(sP, c.easing)
-
-      let dx = 0, dy = 0
-      if      (c.slideDir === 'up')   dy = -c.slideAmt * ep
-      else if (c.slideDir === 'down') dy =  c.slideAmt * ep
-      else if (c.slideDir === 'left') dx = -c.slideAmt * ep
-      else                             dx =  c.slideAmt * ep
-
-      const panelH  = c.panelHeight > 0 ? c.panelHeight : mh
-      const signX   = dx !== 0 ? Math.sign(dx) : 0
-      const signY   = dy !== 0 ? Math.sign(dy) : 0
-      const panelDx = dx + c.panelOffset * ep * signX
-      const panelDy = dy + c.panelOffset * ep * signY
-
-      ctx.save()
-      ctx.beginPath(); ctx.rect(mx, my, mw, mh); ctx.clip()
-
-      if (sP > 0) {
+    // ── Idle preview ─────────────────────────────────────────────────────────
+    if (isIdlePreview) {
+      const img = ST.current.slideImg
+      if (img) {
+        // Show static panel so user can see the banner area (image drawn by drawSlideBannerImage)
+        ctx.save()
+        ctx.beginPath(); ctx.rect(mx, my, mw, mh); ctx.clip()
         ctx.globalAlpha = c.panelOpacity
         ctx.fillStyle = c.panelColor
-        ctx.fillRect(mx + panelDx, my + panelDy, mw, panelH)
+        ctx.fillRect(mx, my, mw, panelH)
         ctx.globalAlpha = 1
+        ctx.restore()
       }
-
-      const img = ST.current.slideImg
-      if (img && sP > 0) {
-        const aw    = mw * c.slideImgScale
-        const ah    = (img.height / img.width) * aw
-        const ax    = mx + mw / 2 - aw / 2 + c.slideImgOffX + dx
-        const ay    = my + mh / 2 - ah / 2 + c.slideImgOffY + dy
-        const alpha = isIdlePreview ? 1 : Math.max(0, Math.min(1, elapsed * 3))
-        ctx.globalAlpha = alpha
-        ctx.drawImage(img, ax, ay, aw, ah)
-        ctx.globalAlpha = 1
-      }
-
+      // Mask outline
+      ctx.save()
+      ctx.strokeStyle = 'rgba(217,82,40,0.75)'
+      ctx.lineWidth = 1.5; ctx.setLineDash([8, 5])
+      ctx.strokeRect(mx, my, mw, mh)
       ctx.restore()
+      return
     }
 
-    // Mask outline — always drawn so user always sees where the slide region is
+    // ── Demo: not yet triggered ───────────────────────────────────────────────
+    if (!s.bannerTriggered) return
+
+    // ── Demo: animation ───────────────────────────────────────────────────────
+    const inElapsed = Math.max(0, currentTimeRef.current - s.bannerTriggerSec)
+    const sP = Math.min(1, inElapsed / Math.max(0.001, c.slideDur))
+    if (sP <= 0) return
+
+    const ep = applyEasing(sP, c.easing)
+
+    // ep convention matches original HTML: ep goes 0→1, content moves in direction
+    let dx = 0, dy = 0
+    if      (c.slideDir === 'up')   dy = -c.slideAmt * ep
+    else if (c.slideDir === 'down') dy =  c.slideAmt * ep
+    else if (c.slideDir === 'left') dx = -c.slideAmt * ep
+    else                             dx =  c.slideAmt * ep
+
     ctx.save()
-    ctx.strokeStyle = 'rgba(217,82,40,0.75)'
-    ctx.lineWidth = 1.5
-    ctx.setLineDash([8, 5])
-    ctx.strokeRect(mx, my, mw, mh)
+    ctx.beginPath(); ctx.rect(mx, my, mw, mh); ctx.clip()
+
+    // Step 1 — capture the current canvas (context video already drawn) into scratch
+    let scratch = scratchCanvasRef.current
+    if (!scratch) { scratch = document.createElement('canvas'); scratchCanvasRef.current = scratch }
+    if (scratch.width !== mw || scratch.height !== mh) { scratch.width = mw; scratch.height = mh }
+    const sc = scratch.getContext('2d')
+    if (sc) { sc.clearRect(0, 0, mw, mh); sc.drawImage(ctx.canvas, mx, my, mw, mh, 0, 0, mw, mh) }
+
+    // Step 2 — redraw video content shifted by (dx, dy) so sidebar appears to move
+    ctx.drawImage(scratch, 0, 0, mw, mh, mx + dx, my + dy, mw, mh)
+
+    // Step 3 — panel at REST position (not shifted) so it covers the gap the video left
+    ctx.globalAlpha = c.panelOpacity
+    ctx.fillStyle = c.panelColor
+    ctx.fillRect(mx, my, mw, panelH)
+    ctx.globalAlpha = 1
+
+    ctx.restore()
+  }
+
+  // Called AFTER the ad overlay so the image is always on top.
+  function drawSlideBannerImage(ctx: CanvasRenderingContext2D) {
+    const img = ST.current.slideImg
+    if (!img) { return }
+
+    const s = ST.current
+    const isIdlePreview = !s.playing && !s.scanning
+    if (!isIdlePreview && !s.bannerTriggered) { return }
+
+    const c = configRef.current
+    const { maskX: mx, maskY: my, maskW: mw } = c
+
+    const inElapsed = isIdlePreview ? 999 : Math.max(0, currentTimeRef.current - s.bannerTriggerSec)
+    const alpha = Math.min(1, inElapsed * 3)
+
+    const aw = mw * c.slideImgScale
+    const ah = img.naturalWidth > 0 ? (img.naturalHeight / img.naturalWidth) * aw : aw
+
+    ctx.save()
+    ctx.globalAlpha = alpha
+    ctx.drawImage(img, mx, my, aw, ah)
+    ctx.globalAlpha = 1
     ctx.restore()
   }
 
@@ -345,6 +369,10 @@ export function useAdEngine(showToast: (msg: string, options?: { color?: string,
     // ── Base layer: context video ────────────────────────────────────────────
     if (cv && cv.readyState >= 2) drawCtxVideo(ctx, cv, W, H)
 
+    // ── Slide banner (drawn before ad overlay so its scratch captures only
+    //    the context video, not the ad video that overlaps the mask region) ──
+    drawSlideBanner(ctx)
+
     // ── Ad overlay + rectangle ───────────────────────────────────────────────
     // In idle/preview: always show overlay so user can position it while
     //   playing or paused (demoStateRef tracks whether we're in demo mode).
@@ -361,8 +389,8 @@ export function useAdEngine(showToast: (msg: string, options?: { color?: string,
       drawTimer(ctx, adX, adY, adW, adH, s.adPlaying ? s.adRemaining : configRef.current.adDur)
     }
 
-    // ── Slide banner ─────────────────────────────────────────────────────────
-    drawSlideBanner(ctx)
+    // ── Slide banner image (drawn after ad overlay so it's always on top) ──
+    drawSlideBannerImage(ctx)
   }
 
   // liveRedraw is now just an alias for redraw — both draw on the single canvas.
@@ -449,7 +477,7 @@ export function useAdEngine(showToast: (msg: string, options?: { color?: string,
 
     const c = configRef.current
     s.adTriggerSec     = c.tsMin * 60 + c.tsSec
-    s.bannerTriggerSec = c.bannerMin * 60 + c.bannerSec
+    s.bannerTriggerSec = s.adTriggerSec
     s.adDur = c.adDur; s.adRemaining = s.adDur
 
     if (!cv.duration || cv.readyState < 1) {
@@ -607,6 +635,7 @@ export function useAdEngine(showToast: (msg: string, options?: { color?: string,
     img.onload = () => { ST.current.slideImg = img; liveRedraw() }
     img.src = URL.createObjectURL(f)
     setSlideImgName(f.name)
+    input.value = ''
   }
 
   function clearUpload(type: 'ctx' | 'ad') {
@@ -793,20 +822,24 @@ export function useAdEngine(showToast: (msg: string, options?: { color?: string,
     }
   }
 
+  function getConfigSnapshot(): AdEngineConfig {
+    return { ...configRef.current }
+  }
+
   // ── Return ─────────────────────────────────────────────────────────────────
 
   // ── Canvas drag-to-position ────────────────────────────────────────────────
 
   interface DragState {
     active: boolean
-    type: 'ad' | 'banner' | 'timer' | null
+    type: 'ad' | 'banner' | 'timer' | 'mask' | 'slide' | null
     startMouseX: number
     startMouseY: number
     startCfgX: number
     startCfgY: number
   }
   const dragRef  = useRef<DragState>({ active: false, type: null, startMouseX: 0, startMouseY: 0, startCfgX: 0, startCfgY: 0 })
-  const [hoveredEl, setHoveredEl] = useState<'ad' | 'banner' | 'timer' | null>(null)
+  const [hoveredEl, setHoveredEl] = useState<'ad' | 'banner' | 'timer' | 'mask' | 'slide' | null>(null)
   const [isDragging, setIsDragging] = useState(false)
 
   function toCanvasPos(e: MouseEvent | React.MouseEvent) {
@@ -818,14 +851,13 @@ export function useAdEngine(showToast: (msg: string, options?: { color?: string,
     }
   }
 
-  function hitTest(cx: number, cy: number): 'ad' | 'banner' | 'timer' | null {
+  function hitTest(cx: number, cy: number): 'ad' | 'banner' | 'timer' | 'mask' | 'slide' | null {
     const c = configRef.current
     const W = 1280, H = 720
     const adW = W * (c.avScale / 100), adH = adW * (9 / 16)
     const adX = (W - adW) * (c.avX / 100), adY = (H - adH) * (c.avY / 100)
 
     // ── Timer (topmost layer) ────────────────────────────────────────────────
-    // Hit area matches drawTimer: text starts at (tX, tY), approx width = tf*6, height = tf*1.5
     const tf = Math.max(c.tmFont, Math.round(adH * 0.06))
     const tX = adX + adW * (c.tmX / 100)
     const tY = adY + adH * (c.tmY / 100)
@@ -833,7 +865,7 @@ export function useAdEngine(showToast: (msg: string, options?: { color?: string,
       return 'timer'
     }
 
-    // ── Banner image ──────────────────────────────────────────────────────────
+    // ── Banner image (ad overlay) ─────────────────────────────────────────────
     const img = ST.current.bannerImg
     if (img) {
       const bW = adW * (c.bnScale / 100)
@@ -842,6 +874,23 @@ export function useAdEngine(showToast: (msg: string, options?: { color?: string,
       const bY = adY + (adH - bH) * (c.bnY / 100)
       if (cx >= bX && cx <= bX + bW && cy >= bY && cy <= bY + bH) return 'banner'
     }
+
+    // ── Slide image (within mask) ─────────────────────────────────────────────
+    const slideImg = ST.current.slideImg
+    const { maskX: mx, maskY: my, maskW: mw, maskH: mh } = c
+    if (slideImg) {
+      const aw = mw * c.slideImgScale
+      const ah = (slideImg.naturalHeight / slideImg.naturalWidth) * aw
+      const ax = mx + mw / 2 - aw / 2 + c.slideImgOffX
+      const ay = my + mh / 2 - ah / 2 + c.slideImgOffY
+      // Clamp hit area to mask bounds
+      const hx1 = Math.max(ax, mx), hy1 = Math.max(ay, my)
+      const hx2 = Math.min(ax + aw, mx + mw), hy2 = Math.min(ay + ah, my + mh)
+      if (cx >= hx1 && cx <= hx2 && cy >= hy1 && cy <= hy2) return 'slide'
+    }
+
+    // ── Mask rectangle ────────────────────────────────────────────────────────
+    if (cx >= mx && cx <= mx + mw && cy >= my && cy <= my + mh) return 'mask'
 
     // ── Ad video overlay ──────────────────────────────────────────────────────
     if (cx >= adX && cx <= adX + adW && cy >= adY && cy <= adY + adH) return 'ad'
@@ -853,8 +902,18 @@ export function useAdEngine(showToast: (msg: string, options?: { color?: string,
     const hit = hitTest(pos.x, pos.y); if (!hit) return
     e.preventDefault()
     const c = configRef.current
-    const startX = hit === 'ad' ? c.avX : hit === 'banner' ? c.bnX : c.tmX
-    const startY = hit === 'ad' ? c.avY : hit === 'banner' ? c.bnY : c.tmY
+    const startX = hit === 'ad' ? c.avX
+                 : hit === 'banner' ? c.bnX
+                 : hit === 'timer'  ? c.tmX
+                 : hit === 'mask'   ? c.maskX
+                 : hit === 'slide'  ? c.slideImgOffX
+                 : c.tmX
+    const startY = hit === 'ad' ? c.avY
+                 : hit === 'banner' ? c.bnY
+                 : hit === 'timer'  ? c.tmY
+                 : hit === 'mask'   ? c.maskY
+                 : hit === 'slide'  ? c.slideImgOffY
+                 : c.tmY
     dragRef.current = {
       active: true, type: hit,
       startMouseX: pos.x, startMouseY: pos.y,
@@ -893,10 +952,25 @@ export function useAdEngine(showToast: (msg: string, options?: { color?: string,
         })
 
       } else if (dragRef.current.type === 'timer') {
-        // Timer position is % of the ad frame (0-95 clamped)
         setConfig({
           tmX: Math.max(0, Math.min(95, dragRef.current.startCfgX + dx / Math.max(1, adW) * 100)),
           tmY: Math.max(0, Math.min(95, dragRef.current.startCfgY + dy / Math.max(1, adH) * 100)),
+        })
+
+      } else if (dragRef.current.type === 'mask') {
+        // maskX/Y are absolute px on the 1280×720 canvas
+        const newMx = dragRef.current.startCfgX + dx
+        const newMy = dragRef.current.startCfgY + dy
+        setConfig({
+          maskX: Math.max(0, Math.min(W - cfg.maskW, newMx)),
+          maskY: Math.max(0, Math.min(H - cfg.maskH, newMy)),
+        })
+
+      } else if (dragRef.current.type === 'slide') {
+        // slideImgOffX/Y are px offsets from the center of the mask
+        setConfig({
+          slideImgOffX: dragRef.current.startCfgX + dx,
+          slideImgOffY: dragRef.current.startCfgY + dy,
         })
       }
     }
@@ -932,9 +1006,8 @@ export function useAdEngine(showToast: (msg: string, options?: { color?: string,
     logLines, playerStatus,
     progressPct,
     // Marker positions derived from config + duration — always accurate in any state
-    adMarkerPct:     ctxDuration > 0 ? Math.min((config.tsMin * 60 + config.tsSec) / ctxDuration * 100, 97) : 0,
-    adEndPct:        ctxDuration > 0 ? Math.min((config.tsMin * 60 + config.tsSec + config.adDur) / ctxDuration * 100, 99) : 0,
-    bannerMarkerPct: ctxDuration > 0 ? Math.min((config.bannerMin * 60 + config.bannerSec) / ctxDuration * 100, 97) : 0,
+    adMarkerPct:     ctxDuration > 0 ? Math.min((config.tsMin * 60 + config.tsSec) / (ctxDuration + config.adDur) * 100, 97) : 0,
+    adEndPct:        ctxDuration > 0 ? Math.min((config.tsMin * 60 + config.tsSec + config.adDur) / (ctxDuration + config.adDur) * 100, 99) : 0,
     ctxDuration,
     trimIn, trimOut,
     currentTime, totalTime,
@@ -945,6 +1018,7 @@ export function useAdEngine(showToast: (msg: string, options?: { color?: string,
     startDemo, replayDemo, togglePlay, seekTo, resetPreview,
     startTrimDrag, previewTrim,
     getExportSnapshot,
+    getConfigSnapshot,
     sizePrev, liveRedraw,
     // Canvas drag
     onCanvasMouseDown, onCanvasMouseMove, onCanvasMouseLeave,

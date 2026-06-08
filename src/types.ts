@@ -37,8 +37,6 @@ export interface AdEngineConfig {
   tsMin:     number        // ad trigger — minutes
   tsSec:     number        // ad trigger — seconds
   adDur:     6 | 15 | 30  // ad slot duration
-  bannerMin: number        // slide banner trigger — minutes
-  bannerSec: number        // slide banner trigger — seconds
 
   // Context tags (dynamic list)
   tags: string[]

@@ -13,7 +13,6 @@ interface Props {
   progressPct:  number
   adMarkerPct:     number
   adEndPct:        number
-  bannerMarkerPct: number
   ctxDuration:     number   // raw seconds — used for placement timeline in preview
   trimIn:  number
   trimOut: number
@@ -22,7 +21,6 @@ interface Props {
   exportFormat: ExportFormat
   ctxUploaded:   string
   adUploaded:    string
-  hasSlideBanner: boolean  // only show slide-banner marker when image is uploaded
   onRun:     () => void
   onPlay:    () => void
   onReplay:  () => void
@@ -36,13 +34,13 @@ interface Props {
   onCanvasMouseMove: (e: React.MouseEvent<HTMLCanvasElement>) => void
   onCanvasMouseLeave: () => void
   isDragging: boolean
-  hoveredEl: 'ad' | 'banner' | 'timer' | null
+  hoveredEl: 'ad' | 'banner' | 'timer' | 'mask' | 'slide' | null
 }
 
 export function CanvasCard({
   canvasRef, demoState, logLines, playerStatus, isExporting,
-  progressPct, adMarkerPct, adEndPct, bannerMarkerPct, ctxDuration, trimIn, trimOut,
-  currentTime, totalTime, exportFormat, ctxUploaded, adUploaded, hasSlideBanner,
+  progressPct, adMarkerPct, adEndPct, ctxDuration, trimIn, trimOut,
+  currentTime, totalTime, exportFormat, ctxUploaded, adUploaded,
   onRun, onPlay, onReplay, onResetPreview, onSeek, onExport, onExportFormatChange, onTrimDrag, onPreviewTrim,
   onCanvasMouseDown, onCanvasMouseMove, onCanvasMouseLeave,
   isDragging, hoveredEl,
@@ -178,11 +176,6 @@ export function CanvasCard({
                     ● Ad @ {Math.floor(adMarkerPct / 100 * ctxDuration / 60)}:{String(Math.floor((adMarkerPct / 100 * ctxDuration) % 60)).padStart(2,'0')}
                   </span>
                 )}
-                {hasSlideBanner && bannerMarkerPct > 0 && (
-                  <span className="ptl-li ptl-banner">
-                    ● Slide @ {Math.floor(bannerMarkerPct / 100 * ctxDuration / 60)}:{String(Math.floor((bannerMarkerPct / 100 * ctxDuration) % 60)).padStart(2,'0')}
-                  </span>
-                )}
               </div>
               <div className="placement-tl-bar">
                 <div className="ptl-track">
@@ -215,12 +208,6 @@ export function CanvasCard({
                     </div>
                   )}
 
-                  {hasSlideBanner && bannerMarkerPct > 0 && (
-                    <div className="ptl-marker ptl-marker-banner" style={{ left: `${bannerMarkerPct}%` }}>
-                      <div className="ptl-line" />
-                      <span className="ptl-tag">Slide</span>
-                    </div>
-                  )}
                   {/* Live playhead during demo */}
                   {demoState === 'running' && (
                     <div className="ptl-playhead" style={{ left: `${progressPct}%` }} />
@@ -250,7 +237,6 @@ export function CanvasCard({
             <div className="tl">
               <div className="tl-legend">
                 <div className="tl-li"><div className="tl-dot" style={{ background: 'var(--amber)' }} />Ad trigger</div>
-                <div className="tl-li"><div className="tl-dot" style={{ background: 'var(--orange)' }} />Banner slide</div>
                 <div className="tl-li"><div className="tl-dot" style={{ background: 'var(--blue)' }} />Playhead</div>
               </div>
 
@@ -258,9 +244,6 @@ export function CanvasCard({
                 <div className="tl-fill" style={{ width: `${progressPct}%` }} />
                 {adMarkerPct > 0 && (
                   <div className="tl-marker" style={{ left: `${adMarkerPct}%`, background: 'var(--amber)' }} />
-                )}
-                {bannerMarkerPct > 0 && (
-                  <div className="tl-marker" style={{ left: `${bannerMarkerPct}%`, background: 'var(--orange)' }} />
                 )}
                 <div className="tl-marker" style={{ left: `${progressPct}%`, background: 'var(--blue)', width: 2 }} />
               </div>

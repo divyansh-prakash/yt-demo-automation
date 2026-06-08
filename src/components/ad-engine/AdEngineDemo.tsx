@@ -48,7 +48,7 @@ export function AdEngineDemo({ showToast, onSave, presetToLoad }: Props) {
         onClearUpload={h.clearUpload}
         onClearBanner={h.clearBanner}
         onClearSlideImg={h.clearSlideImg}
-        onSave={() => onSave(h.config)}
+        onSave={() => onSave(h.getConfigSnapshot())}
       />
 
       <main className="right-col">
@@ -61,7 +61,6 @@ export function AdEngineDemo({ showToast, onSave, presetToLoad }: Props) {
           progressPct={h.progressPct}
           adMarkerPct={h.adMarkerPct}
           adEndPct={h.adEndPct}
-          bannerMarkerPct={h.bannerMarkerPct}
           ctxDuration={h.ctxDuration}
           trimIn={h.trimIn}
           trimOut={h.trimOut}
@@ -70,7 +69,6 @@ export function AdEngineDemo({ showToast, onSave, presetToLoad }: Props) {
           exportFormat={exporter.exportFormat}
           ctxUploaded={h.ctxUploaded}
           adUploaded={h.adUploaded}
-          hasSlideBanner={!!h.slideImgUploaded}
           onRun={h.startDemo}
           onPlay={h.togglePlay}
           onReplay={h.replayDemo}

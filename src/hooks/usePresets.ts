@@ -62,16 +62,11 @@ export function usePresets(onLoad: (config: AdEngineConfig) => void) {
   }, [onLoad])
 
   const saveActive = useCallback((config: AdEngineConfig, name?: string) => {
-    // Strip per-demo fields — these change per session and should not persist.
-    // Context tags, ad timing, and banner timing are intentionally excluded.
+    // Strip only the fields we do not want shared across saved presets.
+    // Timing controls are part of the preset and should persist.
     const persistent: AdEngineConfig = {
       ...config,
       tags:      DEFAULT_CONFIG.tags,
-      tsMin:     DEFAULT_CONFIG.tsMin,
-      tsSec:     DEFAULT_CONFIG.tsSec,
-      adDur:     DEFAULT_CONFIG.adDur,
-      bannerMin: DEFAULT_CONFIG.bannerMin,
-      bannerSec: DEFAULT_CONFIG.bannerSec,
     }
     setPresets(prev => {
       const idx = prev.findIndex(p => p.id === activeId)

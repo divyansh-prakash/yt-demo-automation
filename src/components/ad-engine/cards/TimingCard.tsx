@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { SidebarCard } from '../shared/SidebarCard'
 import { SliderField } from '../../shared/SliderField'
 import type { AdEngineConfig } from '../../../types'
@@ -15,7 +16,31 @@ interface Props {
   setConfig: (u: Partial<AdEngineConfig>) => void
 }
 
+function useTimeInput(initial: number, onCommit: (v: number) => void) {
+  const [str, setStr] = useState(String(initial))
+
+  useEffect(() => {
+    setStr(String(initial))
+  }, [initial])
+
+  return {
+    value: str,
+    onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+      setStr(e.target.value)
+      if (e.target.value !== '') onCommit(Math.min(59, Math.max(0, +e.target.value)))
+    },
+    onBlur: () => {
+      const n = str === '' || isNaN(+str) ? 0 : Math.min(59, Math.max(0, +str))
+      setStr(String(n))
+      onCommit(n)
+    },
+  }
+}
+
 export function TimingCard({ config: c, setConfig }: Props) {
+  const tsMin    = useTimeInput(c.tsMin,     v => setConfig({ tsMin: v }))
+  const tsSec    = useTimeInput(c.tsSec,     v => setConfig({ tsSec: v }))
+
   // Compute the effective (actually rendered) timer font size.
   // drawTimer enforces a minimum of adH * 0.06 so small values have no effect.
   const adW          = 1280 * (c.avScale / 100)
@@ -36,15 +61,9 @@ export function TimingCard({ config: c, setConfig }: Props) {
           <div className="timing-block-label">Ad appears at</div>
           <div className="timing-hint">When the mid-roll ad interrupts the video</div>
           <div className="timing-row">
-            <input
-              className="timing-input" type="number" min={0} max={59}
-              value={c.tsMin} onChange={e => setConfig({ tsMin: +e.target.value })}
-            />
+            <input className="timing-input" type="number" min={0} max={59} {...tsMin} />
             <span className="timing-sep">:</span>
-            <input
-              className="timing-input" type="number" min={0} max={59}
-              value={c.tsSec} onChange={e => setConfig({ tsSec: +e.target.value })}
-            />
+            <input className="timing-input" type="number" min={0} max={59} {...tsSec} />
             <select
               className="timing-dur"
               value={c.adDur}
@@ -93,24 +112,6 @@ export function TimingCard({ config: c, setConfig }: Props) {
           </div>
         </div>
 
-        <div className="s-divider" />
-
-        {/* Banner trigger */}
-        <div className="timing-block">
-          <div className="timing-block-label">Banner slides in at</div>
-          <div className="timing-hint">When the slide banner animates into frame</div>
-          <div className="timing-row">
-            <input
-              className="timing-input" type="number" min={0} max={59}
-              value={c.bannerMin} onChange={e => setConfig({ bannerMin: +e.target.value })}
-            />
-            <span className="timing-sep">:</span>
-            <input
-              className="timing-input" type="number" min={0} max={59}
-              value={c.bannerSec} onChange={e => setConfig({ bannerSec: +e.target.value })}
-            />
-          </div>
-        </div>
 
       </div>
     </SidebarCard>
