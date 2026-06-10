@@ -56,8 +56,7 @@ export function useAdEngine(showToast: (msg: string, options?: { color?: string,
 
   // ── Stable refs ──────────────────────────────────────────────────────────
   const canvasRef     = useRef<HTMLCanvasElement>(null)
-  const scratchCanvasRef = useRef<HTMLCanvasElement | null>(null)
-  const ctxVidRef     = useRef<HTMLVideoElement>(null)
+const ctxVidRef     = useRef<HTMLVideoElement>(null)
   const adVidRef      = useRef<HTMLVideoElement>(null)
   const ST            = useRef<RuntimeState>({ ...DEFAULT_RT })
   const configRef     = useRef<AdEngineConfig>(DEFAULT_CONFIG)
@@ -274,24 +273,25 @@ export function useAdEngine(showToast: (msg: string, options?: { color?: string,
 
     const ep = applyEasing(sP, c.easing)
 
-    let dx = 0, dy = 0
-    if      (c.slideDir === 'up')   dy = -c.slideAmt * ep
-    else if (c.slideDir === 'down') dy =  c.slideAmt * ep
-    else if (c.slideDir === 'left') dx = -c.slideAmt * ep
-    else                             dx =  c.slideAmt * ep
+    let sx = 0, sy = 0
+    if      (c.slideDir === 'up')   sy = -c.slideAmt * ep
+    else if (c.slideDir === 'down') sy =  c.slideAmt * ep
+    else if (c.slideDir === 'left') sx = -c.slideAmt * ep
+    else                             sx =  c.slideAmt * ep
 
-    // Capture current mask region content before we overwrite it
-    let scratch = scratchCanvasRef.current
-    if (!scratch) { scratch = document.createElement('canvas'); scratchCanvasRef.current = scratch }
-    if (scratch.width !== mw || scratch.height !== mh) { scratch.width = mw; scratch.height = mh }
-    const sc = scratch.getContext('2d')
-    if (sc) { sc.clearRect(0, 0, mw, mh); sc.drawImage(ctx.canvas, mx, my, mw, mh, 0, 0, mw, mh) }
+    const cv = ctxVidRef.current
+    const W = ctx.canvas.width, H = ctx.canvas.height
 
-    // Clip to mask, clear original content, draw shifted
+    // Clip to mask, fill gap with panel color, then re-draw the ctx video
+    // shifted within the clip — avoids snapshot timing black from scratch canvas
     ctx.save()
     ctx.beginPath(); ctx.rect(mx, my, mw, mh); ctx.clip()
-    ctx.clearRect(mx, my, mw, mh)
-    ctx.drawImage(scratch, 0, 0, mw, mh, mx + dx, my + dy, mw, mh)
+    ctx.globalAlpha = c.panelOpacity
+    ctx.fillStyle = c.panelColor
+    ctx.fillRect(mx, my, mw, mh)
+    ctx.globalAlpha = 1
+    ctx.translate(sx, sy)
+    if (cv && cv.readyState >= 2) drawCtxVideo(ctx, cv, W, H)
     ctx.restore()
   }
 
@@ -300,15 +300,31 @@ export function useAdEngine(showToast: (msg: string, options?: { color?: string,
     if (!ST.current.slideImg) return
     const s = ST.current
     const c = configRef.current
+    const { maskX: mx, maskY: my, maskW: mw, maskH: mh } = c
     const isIdlePreview = !s.playing && !s.scanning
     if (!isIdlePreview && !s.bannerTriggered) return
 
-    const inElapsed = isIdlePreview ? 999 : Math.max(0, currentTimeRef.current - s.bannerTriggerSec)
-    const alpha = Math.min(1, inElapsed * 3)
-
     ctx.save()
-    ctx.globalAlpha = alpha * c.panelOpacity
+    ctx.globalAlpha = c.panelOpacity
     ctx.fillStyle = c.panelColor
+
+    if (!isIdlePreview) {
+      const inElapsed = Math.max(0, currentTimeRef.current - s.bannerTriggerSec)
+      const sP = Math.min(1, inElapsed / Math.max(0.001, c.slideDur))
+      if (sP <= 0) { ctx.restore(); return }
+      const ep = applyEasing(sP, c.easing)
+
+      // Panel slides in from the opposite edge — stays in lockstep with the content slide
+      let ptx = 0, pty = 0
+      if      (c.slideDir === 'down')  pty = -c.slideAmt * (1 - ep)
+      else if (c.slideDir === 'up')    pty =  c.slideAmt * (1 - ep)
+      else if (c.slideDir === 'right') ptx = -c.slideAmt * (1 - ep)
+      else                              ptx =  c.slideAmt * (1 - ep)
+
+      ctx.beginPath(); ctx.rect(mx, my, mw, mh); ctx.clip()
+      ctx.translate(ptx, pty)
+    }
+
     if (c.bannerPanelRadius) {
       ctx.beginPath()
       rrect(ctx, c.bannerPanelX, c.bannerPanelY, c.bannerPanelW, c.bannerPanelH, c.bannerPanelRadius)
@@ -327,11 +343,9 @@ export function useAdEngine(showToast: (msg: string, options?: { color?: string,
 
     const s = ST.current
     const c = configRef.current
+    const { maskX: mx, maskY: my, maskW: mw, maskH: mh } = c
     const isIdlePreview = !s.playing && !s.scanning
     if (!isIdlePreview && !s.bannerTriggered) return
-
-    const inElapsed = isIdlePreview ? 999 : Math.max(0, currentTimeRef.current - s.bannerTriggerSec)
-    const alpha = Math.min(1, inElapsed * 3)
 
     // Centered within the panel, offset by slideImgOffX/Y
     const aw = c.bannerPanelW * c.slideImgScale
@@ -340,9 +354,24 @@ export function useAdEngine(showToast: (msg: string, options?: { color?: string,
     const ay = c.bannerPanelY + (c.bannerPanelH - ah) / 2 + c.slideImgOffY
 
     ctx.save()
-    ctx.globalAlpha = alpha
+
+    if (!isIdlePreview) {
+      const inElapsed = Math.max(0, currentTimeRef.current - s.bannerTriggerSec)
+      const sP = Math.min(1, inElapsed / Math.max(0.001, c.slideDur))
+      if (sP <= 0) { ctx.restore(); return }
+      const ep = applyEasing(sP, c.easing)
+
+      let ptx = 0, pty = 0
+      if      (c.slideDir === 'down')  pty = -c.slideAmt * (1 - ep)
+      else if (c.slideDir === 'up')    pty =  c.slideAmt * (1 - ep)
+      else if (c.slideDir === 'right') ptx = -c.slideAmt * (1 - ep)
+      else                              ptx =  c.slideAmt * (1 - ep)
+
+      ctx.beginPath(); ctx.rect(mx, my, mw, mh); ctx.clip()
+      ctx.translate(ptx, pty)
+    }
+
     ctx.drawImage(img, ax, ay, aw, ah)
-    ctx.globalAlpha = 1
     ctx.restore()
   }
 
@@ -360,6 +389,10 @@ export function useAdEngine(showToast: (msg: string, options?: { color?: string,
     const W = canvas.width, H = canvas.height
     const s = ST.current
     const cv = ctxVidRef.current, av = adVidRef.current
+
+    // Keep last rendered frame while either video is seeking — avoids flash on drag
+    if (cv && cv.seeking) return
+    if (av && av.seeking && ST.current.adPlaying) return
 
     ctx.clearRect(0, 0, W, H)
 
@@ -772,10 +805,54 @@ export function useAdEngine(showToast: (msg: string, options?: { color?: string,
 
   function seekTo(pct: number) {
     const s = ST.current, v = ctxVidRef.current
-    if (!v || !v.duration || s.adPlaying || s.scanning) return
-    v.currentTime = pct * s.ctxDur
-    s.adTriggered   = v.currentTime >= s.adTriggerSec
+    if (!v || !v.duration || s.scanning) return
+
+    // s.ctxDur is only set once a demo starts; fall back to video duration in idle
+    const ctxDur  = s.ctxDur > 0 ? s.ctxDur : v.duration
+    const adDur   = s.adDur > 0  ? s.adDur  : 0
+    const totalDur = ctxDur + adDur
+
+    // Map pct (fraction of full track) to a virtual timeline position
+    const virtualTime = pct * totalDur
+
+    // ── Seeking within the ad zone ────────────────────────────────────────────
+    if (adDur > 0 && virtualTime >= s.adTriggerSec && virtualTime < s.adTriggerSec + adDur) {
+      const adElapsed = virtualTime - s.adTriggerSec
+      const av = adVidRef.current
+      if (av && av.duration) {
+        av.currentTime = Math.max(0, Math.min(av.duration, (adElapsed / adDur) * av.duration))
+      }
+      // Shift adStartTime so the countdown stays accurate after the seek
+      s.adStartTime      = Date.now() - adElapsed * 1000
+      s.adElapsedAtPause = adElapsed
+      s.adRemaining      = Math.max(0, adDur - Math.floor(adElapsed))
+      currentTimeRef.current = virtualTime
+      return
+    }
+
+    // ── Seeking outside the ad zone ───────────────────────────────────────────
+    if (s.adPlaying) {
+      s.adPlaying = false
+      adEndRef.current = null
+      if (s.countdown) { clearInterval(s.countdown); s.countdown = null }
+      const av = adVidRef.current
+      if (av) { av.pause() }
+    }
+
+    // Map virtual time to ctx video time (subtract adDur for positions after the ad)
+    const ctxTime = virtualTime < s.adTriggerSec
+      ? virtualTime
+      : Math.max(0, virtualTime - adDur)
+    v.currentTime     = Math.max(0, Math.min(ctxDur, ctxTime))
+    s.adTriggered     = v.currentTime >= s.adTriggerSec
     s.bannerTriggered = v.currentTime >= s.bannerTriggerSec
+
+    // Resume ctx video if we're in a running demo
+    if (demoStateRef.current === 'running' && v.paused) {
+      v.play()
+      s.playing = true
+      setStatus('Playing')
+    }
   }
 
   function startTrimDrag(handle: 'in' | 'out', trackEl: HTMLElement, e: React.MouseEvent | React.TouchEvent) {

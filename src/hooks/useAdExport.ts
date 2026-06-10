@@ -261,7 +261,10 @@ function drawSlideBanner(ctx: CanvasRenderingContext2D, env: ExportEnv) {
 
   ctx.save()
   ctx.beginPath(); ctx.rect(mx, my, mw, mh); ctx.clip()
-  ctx.clearRect(mx, my, mw, mh)
+  ctx.globalAlpha = config.panelOpacity
+  ctx.fillStyle = config.panelColor
+  ctx.fillRect(mx, my, mw, mh)
+  ctx.globalAlpha = 1
   ctx.drawImage(scratchCanvas, 0, 0, mw, mh, mx + dx, my + dy, mw, mh)
   ctx.restore()
 }

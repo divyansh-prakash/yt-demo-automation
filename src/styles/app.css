@@ -1150,9 +1150,11 @@ canvas#ae-stage {
 
 .ptl-track {
   position: relative;
-  height: 4px;
+  height: 6px;
   background: var(--border2);
-  border-radius: 2px;
+  border-radius: 3px;
+  padding: 4px 0;
+  box-sizing: content-box;
 }
 
 .ptl-marker {
@@ -1166,7 +1168,7 @@ canvas#ae-stage {
 
 .ptl-line {
   width: 2px;
-  height: 16px;
+  height: 20px;
   border-radius: 1px;
 }
 
@@ -1232,10 +1234,10 @@ canvas#ae-stage {
   position: absolute;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: 2px;
-  height: 14px;
+  width: 3px;
+  height: 18px;
   background: var(--blue);
-  border-radius: 1px;
+  border-radius: 2px;
   pointer-events: none;
 }
 

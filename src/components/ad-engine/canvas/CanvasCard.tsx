@@ -47,6 +47,11 @@ export function CanvasCard({
 }: Props) {
   const trimTrackRef = useRef<HTMLDivElement>(null)
   const [zoomIdx, setZoomIdx] = useState(0)
+  const [dragPct, setDragPct] = useState<number | null>(null)
+  const seekRafRef = useRef<number | null>(null)
+  // During drag, override the displayed progress immediately so the bar
+  // tracks the cursor — don't wait for the RAF loop to update progressPct.
+  const displayPct = dragPct !== null ? dragPct * 100 : progressPct
   const hasMedia         = !!(ctxUploaded || adUploaded)
   const hasRequiredMedia = !!(ctxUploaded && adUploaded)
   const zoom             = ZOOM_STEPS[zoomIdx]
@@ -55,6 +60,33 @@ export function CanvasCard({
   const handleProgClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect()
     onSeek((e.clientX - rect.left) / rect.width)
+  }
+
+  const handlePtlMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    const track = e.currentTarget
+    const getPct = (ev: MouseEvent | React.MouseEvent) => {
+      const rect = track.getBoundingClientRect()
+      return Math.max(0, Math.min(1, (ev.clientX - rect.left) / rect.width))
+    }
+    const pct = getPct(e)
+    setDragPct(pct)
+    onSeek(pct)
+
+    const onMove = (ev: MouseEvent) => {
+      const p = getPct(ev)
+      setDragPct(p)                              // instant visual update
+      if (seekRafRef.current) cancelAnimationFrame(seekRafRef.current)
+      seekRafRef.current = requestAnimationFrame(() => { onSeek(p); seekRafRef.current = null })
+    }
+    const onUp = (ev: MouseEvent) => {
+      if (seekRafRef.current) { cancelAnimationFrame(seekRafRef.current); seekRafRef.current = null }
+      onSeek(getPct(ev))
+      setDragPct(null)
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
   }
 
   return (
@@ -178,10 +210,10 @@ export function CanvasCard({
                 )}
               </div>
               <div className="placement-tl-bar">
-                <div className="ptl-track">
-                  {/* Progress fill — always rendered during demo */}
+                <div className="ptl-track" onMouseDown={handlePtlMouseDown} style={{ cursor: 'pointer' }}>
+                  {/* Progress fill */}
                   {demoState === 'running' && (
-                    <div className="ptl-fill" style={{ width: `${progressPct}%` }} />
+                    <div className="ptl-fill" style={{ width: `${displayPct}%` }} />
                   )}
 
                   {/* Ad slot band — shows full duration between start and end */}
@@ -208,9 +240,9 @@ export function CanvasCard({
                     </div>
                   )}
 
-                  {/* Live playhead during demo */}
-                  {demoState === 'running' && (
-                    <div className="ptl-playhead" style={{ left: `${progressPct}%` }} />
+                  {/* Playhead — visible when dragging in idle too */}
+                  {(demoState === 'running' || dragPct !== null) && (
+                    <div className="ptl-playhead" style={{ left: `${displayPct}%` }} />
                   )}
                 </div>
               </div>
