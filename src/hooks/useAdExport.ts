@@ -236,7 +236,7 @@ function drawCtxOverlayTags(ctx: CanvasRenderingContext2D, config: AdEngineConfi
   ctx.restore()
 }
 
-// Phase 1: panel + content slide. Called BEFORE ad overlay (clean scratch).
+// Mask animation only. Called BEFORE ad overlay so scratch captures clean video.
 function drawSlideBanner(ctx: CanvasRenderingContext2D, env: ExportEnv) {
   const { config, runtime, slideImg, currentTimeRef, scratchCanvas } = env
   const { maskX: mx, maskY: my, maskW: mw, maskH: mh } = config
@@ -253,57 +253,52 @@ function drawSlideBanner(ctx: CanvasRenderingContext2D, env: ExportEnv) {
   else if (config.slideDir === 'left') dx = -config.slideAmt * ep
   else dx = config.slideAmt * ep
 
-  const signX = dx !== 0 ? Math.sign(dx) : 0
-  const signY = dy !== 0 ? Math.sign(dy) : 0
-  const panelH = config.panelHeight > 0 ? config.panelHeight : mh
-  const panelDx = dx + config.panelOffset * ep * signX
-  const panelDy = dy + config.panelOffset * ep * signY
-
-  ctx.save()
-  ctx.beginPath(); ctx.rect(mx, my, mw, mh); ctx.clip()
-
   if (scratchCanvas.width !== mw || scratchCanvas.height !== mh) {
     scratchCanvas.width = mw; scratchCanvas.height = mh
   }
   const sc = scratchCanvas.getContext('2d')
   if (sc) { sc.clearRect(0, 0, mw, mh); sc.drawImage(ctx.canvas, mx, my, mw, mh, 0, 0, mw, mh) }
 
-  ctx.globalAlpha = config.panelOpacity
-  ctx.fillStyle = config.panelColor
-  ctx.fillRect(mx + panelDx, my + panelDy, mw, panelH)
-  ctx.globalAlpha = 1
-
+  ctx.save()
+  ctx.beginPath(); ctx.rect(mx, my, mw, mh); ctx.clip()
+  ctx.clearRect(mx, my, mw, mh)
   ctx.drawImage(scratchCanvas, 0, 0, mw, mh, mx + dx, my + dy, mw, mh)
   ctx.restore()
 }
 
-// Phase 2: banner image. Called AFTER ad overlay so it stays on top.
-// Exact port of the ad-image section of slRf() — same formula as original HTML.
-function drawSlideBannerImage(ctx: CanvasRenderingContext2D, env: ExportEnv) {
+// White panel — independent layer, drawn AFTER ad overlay so it's always on top.
+function drawBannerPanel(ctx: CanvasRenderingContext2D, env: ExportEnv) {
   const { config, runtime, slideImg, currentTimeRef } = env
-  const { maskX: mx, maskY: my, maskW: mw, maskH: mh } = config
   if (!slideImg || !runtime.bannerTriggered) return
 
   const elapsed = Math.max(0, currentTimeRef.current - runtime.bannerTriggerSec)
-  const sP = Math.min(1, Math.max(0, elapsed / Math.max(0.001, config.slideDur)))
-  if (sP <= 0) return
-
-  const ep = applyEasing(sP, config.easing)
-  let dx = 0, dy = 0
-  if (config.slideDir === 'up') dy = -config.slideAmt * ep
-  else if (config.slideDir === 'down') dy = config.slideAmt * ep
-  else if (config.slideDir === 'left') dx = -config.slideAmt * ep
-  else dx = config.slideAmt * ep
-
-  const aw = mw * config.slideImgScale
-  const ah = (slideImg.height / slideImg.width) * aw
-  // Same formula as original HTML: center of mask + offset + shift
-  const ax = mx + mw / 2 - aw / 2 + config.slideImgOffX + dx
-  const ay = my + mh / 2 - ah / 2 + config.slideImgOffY + dy
+  const alpha = Math.min(1, elapsed * 3)
+  if (alpha <= 0) return
 
   ctx.save()
-  ctx.beginPath(); ctx.rect(mx, my, mw, mh); ctx.clip()
-  ctx.globalAlpha = Math.max(0, Math.min(1, elapsed * 3))
+  ctx.globalAlpha = alpha * config.panelOpacity
+  ctx.fillStyle = config.panelColor
+  ctx.fillRect(config.bannerPanelX, config.bannerPanelY, config.bannerPanelW, config.bannerPanelH)
+  ctx.globalAlpha = 1
+  ctx.restore()
+}
+
+// Banner image — independent layer, drawn on top of white panel.
+function drawSlideBannerImage(ctx: CanvasRenderingContext2D, env: ExportEnv) {
+  const { config, runtime, slideImg, currentTimeRef } = env
+  if (!slideImg || !runtime.bannerTriggered) return
+
+  const elapsed = Math.max(0, currentTimeRef.current - runtime.bannerTriggerSec)
+  const alpha = Math.min(1, elapsed * 3)
+  if (alpha <= 0) return
+
+  const aw = config.bannerPanelW * config.slideImgScale
+  const ah = (slideImg.height / slideImg.width) * aw
+  const ax = config.bannerPanelX + (config.bannerPanelW - aw) / 2 + config.slideImgOffX
+  const ay = config.bannerPanelY + (config.bannerPanelH - ah) / 2 + config.slideImgOffY
+
+  ctx.save()
+  ctx.globalAlpha = alpha
   ctx.drawImage(slideImg, ax, ay, aw, ah)
   ctx.globalAlpha = 1
   ctx.restore()
@@ -346,7 +341,8 @@ function drawFrame(env: ExportEnv) {
     drawTimer(ctx, config, adX, adY, adW, adH, runtime.adRemaining)
   }
 
-  // Slide banner image after ad overlay so it's always on top.
+  // White panel + banner image after ad overlay so they're always on top.
+  drawBannerPanel(ctx, env)
   drawSlideBannerImage(ctx, env)
 }
 
