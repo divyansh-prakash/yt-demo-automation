@@ -418,9 +418,12 @@ export function useAdEngine(showToast: (msg: string, options?: { color?: string,
     let virtualTime = v.currentTime
 
     if (s.adPlaying && s.adStartTime > 0) {
-      // Ad is playing — cv is paused at adTriggerSec.
-      // Advance using wall-clock elapsed so the bar keeps moving during the ad.
-      const elapsed = (Date.now() - s.adStartTime) / 1000
+      // Ad slot is active — use wall-clock elapsed when actually playing,
+      // freeze to the paused snapshot when paused.
+      const adActuallyPlaying = !!adVidRef.current && !adVidRef.current.paused
+      const elapsed = adActuallyPlaying
+        ? (Date.now() - s.adStartTime) / 1000
+        : s.adElapsedAtPause
       virtualTime = Math.min(s.adTriggerSec + elapsed, totalDuration)
     } else if (s.adTriggered && !s.adPlaying && s.adDur > 0) {
       // Ad has ended — cv resumes from adTriggerSec.
