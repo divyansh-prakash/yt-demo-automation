@@ -58,11 +58,14 @@ export interface AdEngineConfig {
   slideImgOffX:  number
   slideImgOffY:  number
 
-  // Slide banner — colour panel
-  panelColor:   string
-  panelOpacity: number
-  panelHeight:  number
-  panelOffset:  number
+  // Slide banner — colour panel (independent layer)
+  panelColor:        string
+  panelOpacity:      number
+  bannerPanelX:      number
+  bannerPanelY:      number
+  bannerPanelW:      number
+  bannerPanelH:      number
+  bannerPanelRadius: number
 }
 
 // ── Runtime state (mutable, lives in a ref — never triggers re-renders) ────

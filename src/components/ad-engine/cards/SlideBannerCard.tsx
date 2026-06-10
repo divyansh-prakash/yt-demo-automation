@@ -101,27 +101,43 @@ export function SlideBannerCard({ config: c, setConfig, defaultCollapsed }: Prop
       </SidebarSection>
 
       <SidebarSection
-        title="Colour panel"
-        tooltip="A coloured background that slides in with the banner to create a clean reveal behind the image."
+        title="White panel"
+        tooltip="A free-floating rectangle that appears behind the banner image. Independent of the mask region — drag it on the canvas to reposition."
       >
-        <div className="color-row">
-          <input
-            type="color"
-            className="color-swatch"
-            value={c.panelColor}
-            onChange={e => setConfig({ panelColor: e.target.value })}
-          />
+        <div className="ctrl-grid">
+          <div className="ctrl-field">
+            <div className="ctrl-label">Left <span className="ctrl-val">{c.bannerPanelX}px</span></div>
+            <input type="number" className="ctrl-number" value={c.bannerPanelX} min={0}
+              onChange={e => setConfig({ bannerPanelX: +e.target.value })} />
+          </div>
+          <div className="ctrl-field">
+            <div className="ctrl-label">Top <span className="ctrl-val">{c.bannerPanelY}px</span></div>
+            <input type="number" className="ctrl-number" value={c.bannerPanelY} min={0}
+              onChange={e => setConfig({ bannerPanelY: +e.target.value })} />
+          </div>
+          <div className="ctrl-field">
+            <div className="ctrl-label">Width <span className="ctrl-val">{c.bannerPanelW}px</span></div>
+            <input type="number" className="ctrl-number" value={c.bannerPanelW} min={1}
+              onChange={e => setConfig({ bannerPanelW: Math.max(1, +e.target.value) })} />
+          </div>
+          <div className="ctrl-field">
+            <div className="ctrl-label">Height <span className="ctrl-val">{c.bannerPanelH}px</span></div>
+            <input type="number" className="ctrl-number" value={c.bannerPanelH} min={1}
+              onChange={e => setConfig({ bannerPanelH: Math.max(1, +e.target.value) })} />
+          </div>
+        </div>
+        <div className="ctrl-field" style={{ marginTop: 6 }}>
+          <div className="ctrl-label">Radius <span className="ctrl-val">{c.bannerPanelRadius}px</span></div>
+          <input type="number" className="ctrl-number" value={c.bannerPanelRadius} min={0}
+            onChange={e => setConfig({ bannerPanelRadius: +e.target.value })} />
+        </div>
+        <div className="color-row" style={{ marginTop: 6 }}>
+          <input type="color" className="color-swatch" value={c.panelColor}
+            onChange={e => setConfig({ panelColor: e.target.value })} />
           <span className="color-text">{c.panelColor}</span>
         </div>
-        <SliderField label="Opacity" unit="%" value={Math.round(c.panelOpacity * 100)} min={0} max={100} onChange={v => setConfig({ panelOpacity: v / 100 })} />
-        <div className="ctrl-field">
-          <div className="ctrl-label">Panel height <span className="ctrl-val">{c.panelHeight === 0 ? 'auto' : `${c.panelHeight}px`}</span></div>
-          <input type="number" className="ctrl-number" value={c.panelHeight} min={0} onChange={e => setConfig({ panelHeight: +e.target.value })} />
-        </div>
-        <div className="ctrl-field">
-          <div className="ctrl-label">Panel offset <span className="ctrl-val">{c.panelOffset}px</span></div>
-          <input type="number" className="ctrl-number" value={c.panelOffset} onChange={e => setConfig({ panelOffset: +e.target.value })} />
-        </div>
+        <SliderField label="Opacity" unit="%" value={Math.round(c.panelOpacity * 100)} min={0} max={100}
+          onChange={v => setConfig({ panelOpacity: v / 100 })} />
       </SidebarSection>
     </SidebarCard>
   )

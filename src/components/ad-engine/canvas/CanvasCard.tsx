@@ -34,7 +34,7 @@ interface Props {
   onCanvasMouseMove: (e: React.MouseEvent<HTMLCanvasElement>) => void
   onCanvasMouseLeave: () => void
   isDragging: boolean
-  hoveredEl: 'ad' | 'banner' | 'timer' | 'mask' | 'slide' | null
+  hoveredEl: 'ad' | 'banner' | 'timer' | 'mask' | 'slide' | 'bannerPanel' | null
 }
 
 export function CanvasCard({

@@ -15,7 +15,8 @@ export const DEFAULT_CONFIG: AdEngineConfig = {
   maskX: 850, maskY: 0, maskW: 430, maskH: 720,
   slideAmt: 120, slideDur: 0.6, slideDir: 'down', easing: 'ease',
   slideImgScale: 0.5, slideImgOffX: 0, slideImgOffY: 0,
-  panelColor: '#ffffff', panelOpacity: 1, panelHeight: 120, panelOffset: 0,
+  panelColor: '#ffffff', panelOpacity: 1,
+  bannerPanelX: 850, bannerPanelY: 0, bannerPanelW: 430, bannerPanelH: 120, bannerPanelRadius: 0,
 }
 
 const DEFAULT_RT: RuntimeState = {
@@ -98,7 +99,9 @@ export function useAdEngine(showToast: (msg: string, options?: { color?: string,
 
   // ── Config updater ────────────────────────────────────────────────────────
   function setConfig(update: Partial<AdEngineConfig>) {
-    const next = { ...configRef.current, ...update }
+    // Spread DEFAULT_CONFIG first so any fields added after a preset was saved
+    // (or missing due to HMR ref retention) always get a sensible value.
+    const next = { ...DEFAULT_CONFIG, ...configRef.current, ...update }
     configRef.current = next
     setConfigState(next)
     requestAnimationFrame(liveRedraw)
@@ -245,29 +248,16 @@ export function useAdEngine(showToast: (msg: string, options?: { color?: string,
   }
 
   // ── Slide banner ─────────────────────────────────────────────────────────
-  // Called twice per frame: before ad overlay (to capture clean video) and
-  // after (for the image). Both paths handled here via the `phase` argument.
+  // Responsible ONLY for the mask region slide animation.
+  // The white panel and banner image are separate independent layers.
   function drawSlideBanner(ctx: CanvasRenderingContext2D) {
     const c = configRef.current
     const s = ST.current
     const { maskX: mx, maskY: my, maskW: mw, maskH: mh } = c
-    const panelH = c.panelHeight > 0 ? c.panelHeight : mh
     const isIdlePreview = !s.playing && !s.scanning
 
-    // ── Idle preview ─────────────────────────────────────────────────────────
+    // Idle: show mask outline so user can position it
     if (isIdlePreview) {
-      const img = ST.current.slideImg
-      if (img) {
-        // Show static panel so user can see the banner area (image drawn by drawSlideBannerImage)
-        ctx.save()
-        ctx.beginPath(); ctx.rect(mx, my, mw, mh); ctx.clip()
-        ctx.globalAlpha = c.panelOpacity
-        ctx.fillStyle = c.panelColor
-        ctx.fillRect(mx, my, mw, panelH)
-        ctx.globalAlpha = 1
-        ctx.restore()
-      }
-      // Mask outline
       ctx.save()
       ctx.strokeStyle = 'rgba(217,82,40,0.75)'
       ctx.lineWidth = 1.5; ctx.setLineDash([8, 5])
@@ -276,66 +266,82 @@ export function useAdEngine(showToast: (msg: string, options?: { color?: string,
       return
     }
 
-    // ── Demo: not yet triggered ───────────────────────────────────────────────
     if (!s.bannerTriggered) return
 
-    // ── Demo: animation ───────────────────────────────────────────────────────
     const inElapsed = Math.max(0, currentTimeRef.current - s.bannerTriggerSec)
     const sP = Math.min(1, inElapsed / Math.max(0.001, c.slideDur))
     if (sP <= 0) return
 
     const ep = applyEasing(sP, c.easing)
 
-    // ep convention matches original HTML: ep goes 0→1, content moves in direction
     let dx = 0, dy = 0
     if      (c.slideDir === 'up')   dy = -c.slideAmt * ep
     else if (c.slideDir === 'down') dy =  c.slideAmt * ep
     else if (c.slideDir === 'left') dx = -c.slideAmt * ep
     else                             dx =  c.slideAmt * ep
 
-    ctx.save()
-    ctx.beginPath(); ctx.rect(mx, my, mw, mh); ctx.clip()
-
-    // Step 1 — capture the current canvas (context video already drawn) into scratch
+    // Capture current mask region content before we overwrite it
     let scratch = scratchCanvasRef.current
     if (!scratch) { scratch = document.createElement('canvas'); scratchCanvasRef.current = scratch }
     if (scratch.width !== mw || scratch.height !== mh) { scratch.width = mw; scratch.height = mh }
     const sc = scratch.getContext('2d')
     if (sc) { sc.clearRect(0, 0, mw, mh); sc.drawImage(ctx.canvas, mx, my, mw, mh, 0, 0, mw, mh) }
 
-    // Step 2 — redraw video content shifted by (dx, dy) so sidebar appears to move
+    // Clip to mask, clear original content, draw shifted
+    ctx.save()
+    ctx.beginPath(); ctx.rect(mx, my, mw, mh); ctx.clip()
+    ctx.clearRect(mx, my, mw, mh)
     ctx.drawImage(scratch, 0, 0, mw, mh, mx + dx, my + dy, mw, mh)
-
-    // Step 3 — panel at REST position (not shifted) so it covers the gap the video left
-    ctx.globalAlpha = c.panelOpacity
-    ctx.fillStyle = c.panelColor
-    ctx.fillRect(mx, my, mw, panelH)
-    ctx.globalAlpha = 1
-
     ctx.restore()
   }
 
-  // Called AFTER the ad overlay so the image is always on top.
-  function drawSlideBannerImage(ctx: CanvasRenderingContext2D) {
-    const img = ST.current.slideImg
-    if (!img) { return }
-
+  // White panel — independent layer, only visible when a slide image is loaded.
+  function drawBannerPanel(ctx: CanvasRenderingContext2D) {
+    if (!ST.current.slideImg) return
     const s = ST.current
-    const isIdlePreview = !s.playing && !s.scanning
-    if (!isIdlePreview && !s.bannerTriggered) { return }
-
     const c = configRef.current
-    const { maskX: mx, maskY: my, maskW: mw } = c
+    const isIdlePreview = !s.playing && !s.scanning
+    if (!isIdlePreview && !s.bannerTriggered) return
 
     const inElapsed = isIdlePreview ? 999 : Math.max(0, currentTimeRef.current - s.bannerTriggerSec)
     const alpha = Math.min(1, inElapsed * 3)
 
-    const aw = mw * c.slideImgScale
+    ctx.save()
+    ctx.globalAlpha = alpha * c.panelOpacity
+    ctx.fillStyle = c.panelColor
+    if (c.bannerPanelRadius) {
+      ctx.beginPath()
+      rrect(ctx, c.bannerPanelX, c.bannerPanelY, c.bannerPanelW, c.bannerPanelH, c.bannerPanelRadius)
+      ctx.fill()
+    } else {
+      ctx.fillRect(c.bannerPanelX, c.bannerPanelY, c.bannerPanelW, c.bannerPanelH)
+    }
+    ctx.globalAlpha = 1
+    ctx.restore()
+  }
+
+  // Banner image — independent layer, drawn on top of white panel.
+  function drawSlideBannerImage(ctx: CanvasRenderingContext2D) {
+    const img = ST.current.slideImg
+    if (!img) return
+
+    const s = ST.current
+    const c = configRef.current
+    const isIdlePreview = !s.playing && !s.scanning
+    if (!isIdlePreview && !s.bannerTriggered) return
+
+    const inElapsed = isIdlePreview ? 999 : Math.max(0, currentTimeRef.current - s.bannerTriggerSec)
+    const alpha = Math.min(1, inElapsed * 3)
+
+    // Centered within the panel, offset by slideImgOffX/Y
+    const aw = c.bannerPanelW * c.slideImgScale
     const ah = img.naturalWidth > 0 ? (img.naturalHeight / img.naturalWidth) * aw : aw
+    const ax = c.bannerPanelX + (c.bannerPanelW - aw) / 2 + c.slideImgOffX
+    const ay = c.bannerPanelY + (c.bannerPanelH - ah) / 2 + c.slideImgOffY
 
     ctx.save()
     ctx.globalAlpha = alpha
-    ctx.drawImage(img, mx, my, aw, ah)
+    ctx.drawImage(img, ax, ay, aw, ah)
     ctx.globalAlpha = 1
     ctx.restore()
   }
@@ -369,8 +375,8 @@ export function useAdEngine(showToast: (msg: string, options?: { color?: string,
     // ── Base layer: context video ────────────────────────────────────────────
     if (cv && cv.readyState >= 2) drawCtxVideo(ctx, cv, W, H)
 
-    // ── Slide banner (drawn before ad overlay so its scratch captures only
-    //    the context video, not the ad video that overlaps the mask region) ──
+    // ── Slide banner mask animation — MUST be before ad overlay so the
+    //    scratch capture only contains context video, not ad video ────────────
     drawSlideBanner(ctx)
 
     // ── Ad overlay + rectangle ───────────────────────────────────────────────
@@ -389,7 +395,8 @@ export function useAdEngine(showToast: (msg: string, options?: { color?: string,
       drawTimer(ctx, adX, adY, adW, adH, s.adPlaying ? s.adRemaining : configRef.current.adDur)
     }
 
-    // ── Slide banner image (drawn after ad overlay so it's always on top) ──
+    // ── White panel + banner image — drawn last so they're always on top ─────
+    drawBannerPanel(ctx)
     drawSlideBannerImage(ctx)
   }
 
@@ -635,6 +642,8 @@ export function useAdEngine(showToast: (msg: string, options?: { color?: string,
     img.onload = () => { ST.current.slideImg = img; liveRedraw() }
     img.src = URL.createObjectURL(f)
     setSlideImgName(f.name)
+    // Reset offsets so stale drag state from a previous image doesn't carry over
+    setConfig({ slideImgOffX: 0, slideImgOffY: 0 })
     input.value = ''
   }
 
@@ -789,9 +798,11 @@ export function useAdEngine(showToast: (msg: string, options?: { color?: string,
   }
 
   // Replaces the entire config in one shot — used when loading a saved preset.
+  // Backfill any fields that didn't exist when the preset was saved.
   function loadConfig(newConfig: AdEngineConfig) {
-    configRef.current = { ...newConfig }
-    setConfigState({ ...newConfig })
+    const merged = { ...DEFAULT_CONFIG, ...newConfig }
+    configRef.current = { ...merged }
+    setConfigState({ ...merged })
   }
 
   function resetPreview() {
@@ -832,14 +843,14 @@ export function useAdEngine(showToast: (msg: string, options?: { color?: string,
 
   interface DragState {
     active: boolean
-    type: 'ad' | 'banner' | 'timer' | 'mask' | 'slide' | null
+    type: 'ad' | 'banner' | 'timer' | 'mask' | 'slide' | 'bannerPanel' | null
     startMouseX: number
     startMouseY: number
     startCfgX: number
     startCfgY: number
   }
   const dragRef  = useRef<DragState>({ active: false, type: null, startMouseX: 0, startMouseY: 0, startCfgX: 0, startCfgY: 0 })
-  const [hoveredEl, setHoveredEl] = useState<'ad' | 'banner' | 'timer' | 'mask' | 'slide' | null>(null)
+  const [hoveredEl, setHoveredEl] = useState<'ad' | 'banner' | 'timer' | 'mask' | 'slide' | 'bannerPanel' | null>(null)
   const [isDragging, setIsDragging] = useState(false)
 
   function toCanvasPos(e: MouseEvent | React.MouseEvent) {
@@ -851,7 +862,7 @@ export function useAdEngine(showToast: (msg: string, options?: { color?: string,
     }
   }
 
-  function hitTest(cx: number, cy: number): 'ad' | 'banner' | 'timer' | 'mask' | 'slide' | null {
+  function hitTest(cx: number, cy: number): 'ad' | 'banner' | 'timer' | 'mask' | 'slide' | 'bannerPanel' | null {
     const c = configRef.current
     const W = 1280, H = 720
     const adW = W * (c.avScale / 100), adH = adW * (9 / 16)
@@ -875,21 +886,23 @@ export function useAdEngine(showToast: (msg: string, options?: { color?: string,
       if (cx >= bX && cx <= bX + bW && cy >= bY && cy <= bY + bH) return 'banner'
     }
 
-    // ── Slide image (within mask) ─────────────────────────────────────────────
+    // ── Slide image (checked before panel since it sits on top) ──────────────
     const slideImg = ST.current.slideImg
-    const { maskX: mx, maskY: my, maskW: mw, maskH: mh } = c
     if (slideImg) {
-      const aw = mw * c.slideImgScale
+      const aw = c.bannerPanelW * c.slideImgScale
       const ah = (slideImg.naturalHeight / slideImg.naturalWidth) * aw
-      const ax = mx + mw / 2 - aw / 2 + c.slideImgOffX
-      const ay = my + mh / 2 - ah / 2 + c.slideImgOffY
-      // Clamp hit area to mask bounds
-      const hx1 = Math.max(ax, mx), hy1 = Math.max(ay, my)
-      const hx2 = Math.min(ax + aw, mx + mw), hy2 = Math.min(ay + ah, my + mh)
-      if (cx >= hx1 && cx <= hx2 && cy >= hy1 && cy <= hy2) return 'slide'
+      const ax = c.bannerPanelX + (c.bannerPanelW - aw) / 2 + c.slideImgOffX
+      const ay = c.bannerPanelY + (c.bannerPanelH - ah) / 2 + c.slideImgOffY
+      if (cx >= ax && cx <= ax + aw && cy >= ay && cy <= ay + ah) return 'slide'
     }
 
+    // ── Banner panel ──────────────────────────────────────────────────────────
+    if (slideImg &&
+        cx >= c.bannerPanelX && cx <= c.bannerPanelX + c.bannerPanelW &&
+        cy >= c.bannerPanelY && cy <= c.bannerPanelY + c.bannerPanelH) return 'bannerPanel'
+
     // ── Mask rectangle ────────────────────────────────────────────────────────
+    const { maskX: mx, maskY: my, maskW: mw, maskH: mh } = c
     if (cx >= mx && cx <= mx + mw && cy >= my && cy <= my + mh) return 'mask'
 
     // ── Ad video overlay ──────────────────────────────────────────────────────
@@ -902,17 +915,19 @@ export function useAdEngine(showToast: (msg: string, options?: { color?: string,
     const hit = hitTest(pos.x, pos.y); if (!hit) return
     e.preventDefault()
     const c = configRef.current
-    const startX = hit === 'ad' ? c.avX
-                 : hit === 'banner' ? c.bnX
-                 : hit === 'timer'  ? c.tmX
-                 : hit === 'mask'   ? c.maskX
-                 : hit === 'slide'  ? c.slideImgOffX
+    const startX = hit === 'ad'          ? c.avX
+                 : hit === 'banner'      ? c.bnX
+                 : hit === 'timer'       ? c.tmX
+                 : hit === 'mask'        ? c.maskX
+                 : hit === 'slide'       ? c.slideImgOffX
+                 : hit === 'bannerPanel' ? c.bannerPanelX
                  : c.tmX
-    const startY = hit === 'ad' ? c.avY
-                 : hit === 'banner' ? c.bnY
-                 : hit === 'timer'  ? c.tmY
-                 : hit === 'mask'   ? c.maskY
-                 : hit === 'slide'  ? c.slideImgOffY
+    const startY = hit === 'ad'          ? c.avY
+                 : hit === 'banner'      ? c.bnY
+                 : hit === 'timer'       ? c.tmY
+                 : hit === 'mask'        ? c.maskY
+                 : hit === 'slide'       ? c.slideImgOffY
+                 : hit === 'bannerPanel' ? c.bannerPanelY
                  : c.tmY
     dragRef.current = {
       active: true, type: hit,
@@ -967,10 +982,15 @@ export function useAdEngine(showToast: (msg: string, options?: { color?: string,
         })
 
       } else if (dragRef.current.type === 'slide') {
-        // slideImgOffX/Y are px offsets from the center of the mask
         setConfig({
           slideImgOffX: dragRef.current.startCfgX + dx,
           slideImgOffY: dragRef.current.startCfgY + dy,
+        })
+
+      } else if (dragRef.current.type === 'bannerPanel') {
+        setConfig({
+          bannerPanelX: Math.max(0, Math.min(W - cfg.bannerPanelW, dragRef.current.startCfgX + dx)),
+          bannerPanelY: Math.max(0, Math.min(H - cfg.bannerPanelH, dragRef.current.startCfgY + dy)),
         })
       }
     }
