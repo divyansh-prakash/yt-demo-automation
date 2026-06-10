@@ -137,7 +137,7 @@ function drawBanner(ctx: CanvasRenderingContext2D, config: AdEngineConfig, banne
 }
 
 function drawTimer(ctx: CanvasRenderingContext2D, config: AdEngineConfig, adX: number, adY: number, adW: number, adH: number, rem: number) {
-  const tf = Math.max(config.tmFont, Math.round(adH * 0.06))
+  const tf = config.tmFont
   const txt = `Ad: 0:${String(rem).padStart(2, '0')}`
   const tX = adX + adW * (config.tmX / 100)
   const tY = adY + adH * (config.tmY / 100)

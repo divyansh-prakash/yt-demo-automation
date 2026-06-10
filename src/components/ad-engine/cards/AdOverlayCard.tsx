@@ -26,10 +26,6 @@ function UnitToggle({ usePx, onToggle }: { usePx: boolean; onToggle: () => void 
 export function AdOverlayCard({ config: c, setConfig, defaultCollapsed }: Props) {
   const [usePx, setUsePx] = useState(false)
 
-  // The canvas always records at 1280×720. The timer has a minimum readable
-  // size enforced in drawTimer: Math.max(tmFont, adH * 0.06).
-  // Compute that floor here so we can disable the − button at the limit.
-
   return (
     <SidebarCard
       icon="📺" iconBg="#e6eeff"

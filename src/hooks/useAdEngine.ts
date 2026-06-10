@@ -177,7 +177,7 @@ const ctxVidRef     = useRef<HTMLVideoElement>(null)
 
   function drawTimer(ctx: CanvasRenderingContext2D, adX: number, adY: number, adW: number, adH: number, rem: number) {
     const c = configRef.current
-    const tf = Math.max(c.tmFont, Math.round(adH * 0.06))
+    const tf = c.tmFont
     const txt = `Ad: 0:${String(rem).padStart(2, '0')}`
     const tX = adX + adW * (c.tmX / 100), tY = adY + adH * (c.tmY / 100)
     ctx.save()
@@ -949,7 +949,7 @@ const ctxVidRef     = useRef<HTMLVideoElement>(null)
     const adX = (W - adW) * (c.avX / 100), adY = (H - adH) * (c.avY / 100)
 
     // ── Timer (topmost layer) ────────────────────────────────────────────────
-    const tf = Math.max(c.tmFont, Math.round(adH * 0.06))
+    const tf = c.tmFont
     const tX = adX + adW * (c.tmX / 100)
     const tY = adY + adH * (c.tmY / 100)
     if (cx >= tX - 4 && cx <= tX + tf * 6 && cy >= tY - tf * 1.3 && cy <= tY + tf * 0.3) {

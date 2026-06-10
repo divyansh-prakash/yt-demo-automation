@@ -41,12 +41,7 @@ export function TimingCard({ config: c, setConfig }: Props) {
   const tsMin    = useTimeInput(c.tsMin,     v => setConfig({ tsMin: v }))
   const tsSec    = useTimeInput(c.tsSec,     v => setConfig({ tsSec: v }))
 
-  // Compute the effective (actually rendered) timer font size.
-  // drawTimer enforces a minimum of adH * 0.06 so small values have no effect.
-  const adW          = 1280 * (c.avScale / 100)
-  const adH          = adW * (9 / 16)
-  const tmFontFloor  = Math.round(adH * 0.06)
-  const effectiveFont = Math.max(c.tmFont, tmFontFloor)
+
 
   return (
     <SidebarCard
@@ -89,24 +84,24 @@ export function TimingCard({ config: c, setConfig }: Props) {
           <div className="ctrl-field" style={{ marginTop: 6 }}>
             <div className="ctrl-label">
               Font size
-              <span className="ctrl-val">{effectiveFont}px</span>
+              <span className="ctrl-val">{c.tmFont}px</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <button
                 style={BTN}
-                disabled={effectiveFont <= tmFontFloor}
-                onClick={() => setConfig({ tmFont: Math.max(tmFontFloor, effectiveFont - 1) })}
+                disabled={c.tmFont <= 1}
+                onClick={() => setConfig({ tmFont: Math.max(1, c.tmFont - 1) })}
               >−</button>
               <input
                 type="range" className="ctrl-slider"
-                min={tmFontFloor} max={72} step={1}
-                value={effectiveFont}
+                min={1} max={72} step={1}
+                value={c.tmFont}
                 onChange={e => setConfig({ tmFont: +e.target.value })}
                 style={{ flex: 1 }}
               />
               <button
                 style={BTN}
-                onClick={() => setConfig({ tmFont: Math.min(72, effectiveFont + 1) })}
+                onClick={() => setConfig({ tmFont: Math.min(72, c.tmFont + 1) })}
               >+</button>
             </div>
           </div>
