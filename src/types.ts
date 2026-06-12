@@ -40,6 +40,20 @@ export interface AdEngineConfig {
 
   // Context tags (dynamic list)
   tags: string[]
+  // Semantic labels (dynamic list)
+  semantics: string[]
+  // Video signal tags shown at the top in panel mode (checkmark row)
+  videoTags: string[]
+  // Entry animation style for context panel and video tags
+  tagAnimation: 'fade' | 'slide-left' | 'slide-up' | 'pop'
+
+  // Tag positioning offsets (virtual px at H=720; scale with sc for canvas)
+  ctxTagsOffX:   number  // context section horizontal offset (default 0 → LX=24)
+  ctxTagsOffY:   number  // context section vertical start offset (default 0 → y=48)
+  semTagsOffX:   number  // semantics section horizontal offset (default 0)
+  semTagsOffY:   number  // extra gap before semantics section (default 0)
+  videoTagsOffX: number  // video tags row horizontal offset from centre (default 0)
+  videoTagsOffY: number  // video tags row vertical offset (default 0)
 
   // Slide banner — mask region
   maskX: number
@@ -104,6 +118,9 @@ export interface RuntimeState {
   // Ad pause/resume tracking
   adStartTime:       number   // Date.now() when ad started or last resumed
   adElapsedAtPause:  number   // seconds of ad that had played when paused
+
+  // Panel intro animation
+  panelAnimStartTime: number  // Date.now() when panel mode began; 0 = not yet started
 }
 
 // ── Demo state machine (drives canvas card UI) ─────────────────────────────

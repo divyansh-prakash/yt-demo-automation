@@ -30,6 +30,18 @@ export function AdEngineDemo({ showToast, onSave, presetToLoad }: Props) {
     return () => window.removeEventListener('resize', onResize)
   }, [])
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code !== 'Space') return
+      const tag = (e.target as HTMLElement).tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      e.preventDefault()
+      h.togglePlay()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [h.togglePlay])
+
   return (
     <div className="app-body">
       <video ref={h.ctxVidRef} style={{ display: 'none' }} playsInline crossOrigin="anonymous" />

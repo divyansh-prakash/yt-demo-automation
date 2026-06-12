@@ -16,6 +16,7 @@ interface ExportRuntime {
   playing: boolean
   countdown: ReturnType<typeof setInterval> | null
   adStartTime: number
+  panelAnimStartTime: number
 }
 
 interface ExportEnv {
@@ -150,25 +151,134 @@ function drawTimer(ctx: CanvasRenderingContext2D, config: AdEngineConfig, adX: n
   ctx.restore()
 }
 
-function drawCtxLabel(ctx: CanvasRenderingContext2D, H: number) {
-  const sc = (H || 400) / 400
-  const fs = Math.round(13 * sc)
-  const lW = Math.round(140 * sc)
-  const lH = Math.round(60 * sc)
-  const lX = Math.round(12 * sc)
-  const lY = Math.round(12 * sc)
-  ctx.save()
-  ctx.fillStyle = 'rgba(0,0,0,0.55)'
-  ctx.beginPath()
-  rrect(ctx, lX, lY, lW, lH, Math.round(8 * sc))
-  ctx.fill()
-  ctx.fillStyle = '#00c4a4'
-  ctx.font = `bold ${fs}px Inter,sans-serif`
-  ctx.fillText('CONTEXT VIDEO', lX + Math.round(10 * sc), lY + Math.round(20 * sc))
-  ctx.fillStyle = '#aaa'
-  ctx.font = `${Math.round(11 * sc)}px Inter,sans-serif`
-  ctx.fillText('Analysing content…', lX + Math.round(10 * sc), lY + Math.round(40 * sc))
-  ctx.restore()
+function drawContextPanel(ctx: CanvasRenderingContext2D, config: AdEngineConfig, H: number, panelT: number) {
+  const tags = config.tags.filter(Boolean)
+  const semantics = config.semantics.filter(Boolean)
+  const videoTags = config.videoTags.filter(Boolean)
+  if (!tags.length && !semantics.length && !videoTags.length) return
+
+  const sc = H / 720
+  const ctxLX = Math.round((24 + config.ctxTagsOffX) * sc)
+  const semLX = Math.round((24 + config.semTagsOffX) * sc)
+  const vtLX  = Math.round((24 + config.videoTagsOffX) * sc)
+  const TEAL = '#4ecdc4'
+  const anim = config.tagAnimation
+  const ITEM_DUR = 0.25
+
+  const applyAnim = (et: number, ecx: number, ecy: number) => {
+    ctx.globalAlpha = et
+    if (anim === 'slide-left') ctx.translate(Math.round(-50 * sc * (1 - et)), 0)
+    else if (anim === 'slide-up') ctx.translate(0, Math.round(20 * sc * (1 - et)))
+    else if (anim === 'pop') {
+      const s2 = 0.7 + 0.3 * et
+      ctx.translate(ecx, ecy); ctx.scale(s2, s2); ctx.translate(-ecx, -ecy)
+    }
+  }
+
+  const hdrFs = Math.round(13 * sc)
+  const tagFs = Math.round(12 * sc)
+  const semFs = Math.round(13 * sc)
+  const nTags = tags.length, nSems = semantics.length, nVTags = videoTags.length
+  const tagStagger = nTags > 1 ? Math.min(0.1, 0.25 / (nTags - 1)) : 0
+  const semBaseStart = Math.min(0.52, 0.40 + Math.max(nTags, 1) * tagStagger + 0.05)
+  const semStagger = nSems > 1 ? Math.min(0.1, 0.12 / (nSems - 1)) : 0
+  const vtBaseStart = Math.min(0.62, semBaseStart + 0.04 + Math.max(nSems, 1) * semStagger)
+  const vtStagger = nVTags > 1 ? Math.min(0.06, 0.14 / (nVTags - 1)) : 0
+  const VT_DUR = 0.22
+
+  let y = Math.round((48 + config.ctxTagsOffY) * sc)
+
+  {
+    const et = applyEasing(Math.max(0, Math.min(1, (panelT - 0.30) / ITEM_DUR)), 'ease')
+    if (et > 0) {
+      ctx.save(); ctx.font = `bold ${hdrFs}px Inter,sans-serif`
+      const hw = ctx.measureText('CONTEXT').width
+      applyAnim(et, ctxLX + hw / 2, y - hdrFs * 0.4)
+      ctx.fillStyle = TEAL; ctx.fillText('CONTEXT', ctxLX, y); ctx.restore()
+    }
+  }
+  y += Math.round(22 * sc)
+
+  for (let i = 0; i < nTags; i++) {
+    const et = applyEasing(Math.max(0, Math.min(1, (panelT - (0.40 + i * tagStagger)) / ITEM_DUR)), 'ease')
+    ctx.font = `bold ${tagFs}px Inter,sans-serif`
+    const label = tags[i].toUpperCase()
+    const tw = ctx.measureText(label).width
+    const pH = Math.round(30 * sc), hPad = Math.round(14 * sc)
+    const pW = Math.min(tw + hPad * 2, Math.round(212 * sc))
+    if (et > 0) {
+      ctx.save(); applyAnim(et, ctxLX + pW / 2, y + pH / 2)
+      ctx.globalAlpha = et * 0.9; ctx.fillStyle = TEAL
+      ctx.beginPath(); rrect(ctx, ctxLX, y, pW, pH, pH / 2); ctx.fill()
+      ctx.globalAlpha = et; ctx.fillStyle = '#fff'
+      ctx.font = `bold ${tagFs}px Inter,sans-serif`
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'
+      ctx.fillText(label, ctxLX + hPad, y + pH - Math.round(8 * sc)); ctx.restore()
+    }
+    y += pH + Math.round(8 * sc)
+  }
+  y += Math.round((24 + config.semTagsOffY) * sc)
+
+  {
+    const et = applyEasing(Math.max(0, Math.min(1, (panelT - semBaseStart) / ITEM_DUR)), 'ease')
+    if (et > 0) {
+      ctx.save(); ctx.font = `bold ${hdrFs}px Inter,sans-serif`
+      const hw = ctx.measureText('SEMANTICS').width
+      applyAnim(et, semLX + hw / 2, y - hdrFs * 0.4)
+      ctx.fillStyle = TEAL; ctx.fillText('SEMANTICS', semLX, y); ctx.restore()
+    }
+  }
+  y += Math.round(24 * sc)
+
+  for (let i = 0; i < nSems; i++) {
+    const et = applyEasing(Math.max(0, Math.min(1, (panelT - (semBaseStart + 0.05 + i * semStagger)) / ITEM_DUR)), 'ease')
+    const sem = semantics[i]
+    if (et > 0) {
+      ctx.save(); ctx.font = `${semFs}px Inter,sans-serif`
+      const sw = ctx.measureText(sem).width
+      applyAnim(et, semLX + sw / 2, y - semFs * 0.4)
+      ctx.fillStyle = '#fff'; ctx.fillText(sem, semLX, y); ctx.restore()
+    }
+    y += Math.round(22 * sc)
+  }
+
+  if (!nVTags) return
+  y += Math.round((24 + config.videoTagsOffY) * sc)
+
+  {
+    const et = applyEasing(Math.max(0, Math.min(1, (panelT - vtBaseStart) / ITEM_DUR)), 'ease')
+    if (et > 0) {
+      ctx.save(); ctx.font = `bold ${hdrFs}px Inter,sans-serif`
+      const hw = ctx.measureText('VIDEO TAGS').width
+      applyAnim(et, vtLX + hw / 2, y - hdrFs * 0.4)
+      ctx.fillStyle = TEAL; ctx.fillText('VIDEO TAGS', vtLX, y); ctx.restore()
+    }
+  }
+  y += Math.round(22 * sc)
+
+  const dotR = Math.round(9 * sc)
+  const dotGap = Math.round(7 * sc)
+  for (let i = 0; i < nVTags; i++) {
+    const et = applyEasing(Math.max(0, Math.min(1, (panelT - (vtBaseStart + 0.04 + i * vtStagger)) / VT_DUR)), 'ease')
+    if (et > 0) {
+      ctx.font = `bold ${tagFs}px Inter,sans-serif`
+      const label = videoTags[i].toUpperCase()
+      const lw = ctx.measureText(label).width
+      ctx.save()
+      applyAnim(et, vtLX + (dotR * 2 + dotGap + lw) / 2, y)
+      ctx.fillStyle = TEAL
+      ctx.beginPath(); ctx.arc(vtLX + dotR, y, dotR, 0, Math.PI * 2); ctx.fill()
+      ctx.fillStyle = '#fff'
+      ctx.font = `bold ${Math.round(dotR * 1.1)}px Inter,sans-serif`
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+      ctx.fillText('✓', vtLX + dotR, y)
+      ctx.font = `bold ${tagFs}px Inter,sans-serif`
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'
+      ctx.fillText(label, vtLX + dotR * 2 + dotGap, y + Math.round(tagFs * 0.36))
+      ctx.restore()
+    }
+    y += 2 * dotR + Math.round(8 * sc)
+  }
 }
 
 function drawScanOverlay(ctx: CanvasRenderingContext2D, W: number, H: number, alpha: number, lineY: number) {
@@ -207,34 +317,6 @@ function drawScanOverlay(ctx: CanvasRenderingContext2D, W: number, H: number, al
   ctx.restore()
 }
 
-function drawCtxOverlayTags(ctx: CanvasRenderingContext2D, config: AdEngineConfig, H: number) {
-  const tagColors = ['#7c3aed', '#0891b2', '#db2777', '#16a34a', '#d97706']
-  const sc = H / 400
-  const pad = Math.round(8 * sc)
-  const lh = Math.round(28 * sc)
-  const lX = Math.round(14 * sc)
-  const r = Math.round(10 * sc)
-  let lY = Math.round(14 * sc)
-  const fs = Math.round(12 * sc)
-  ctx.save()
-  ctx.font = `bold ${fs}px Inter,sans-serif`
-  for (let i = 0; i < config.tags.length; i++) {
-    const label = config.tags[i]
-    if (!label) continue
-    const color = tagColors[i % tagColors.length]
-    const tw = ctx.measureText(label).width
-    ctx.globalAlpha = 0.92
-    ctx.fillStyle = color
-    ctx.beginPath()
-    rrect(ctx, lX, lY, tw + pad * 2, lh, r)
-    ctx.fill()
-    ctx.globalAlpha = 1
-    ctx.fillStyle = '#fff'
-    ctx.fillText(label, lX + pad, lY + lh - Math.round(8 * sc))
-    lY += lh + Math.round(6 * sc)
-  }
-  ctx.restore()
-}
 
 // Mask animation only. Called BEFORE ad overlay so scratch captures clean video.
 function drawSlideBanner(ctx: CanvasRenderingContext2D, env: ExportEnv) {
@@ -327,24 +409,55 @@ function drawFrame(env: ExportEnv) {
   if (runtime.scanning) {
     if (ctxVideo.readyState >= 2) drawCtxVideo(ctx, ctxVideo, W, H, config)
     if (runtime.scanAlpha > 0) drawScanOverlay(ctx, W, H, runtime.scanAlpha, runtime.scanLineY)
-    drawCtxOverlayTags(ctx, config, H)
-    drawCtxLabel(ctx, H)
     return
   }
 
-  if (ctxVideo.readyState >= 2) drawCtxVideo(ctx, ctxVideo, W, H, config)
+  // Panel mode — video scaled into right portion, context panel on left.
+  const inPanelMode = runtime.playing || runtime.adPlaying || runtime.adTriggered
+  if (inPanelMode) {
+    if (!runtime.panelAnimStartTime) runtime.panelAnimStartTime = Date.now()
+    const PANEL_ANIM_MS = 1000
+    const panelT = Math.min(1, (Date.now() - runtime.panelAnimStartTime) / PANEL_ANIM_MS)
+    const eT = applyEasing(panelT, 'ease')
 
-  // Slide banner before ad overlay so its scratch captures only the context video.
-  drawSlideBanner(ctx, env)
+    const VX_FINAL = 280
+    const vScaleFinal = (W - VX_FINAL - 20) / W
+    const VX = Math.round(VX_FINAL * eT)
+    const vScale = 1 + (vScaleFinal - 1) * eT
+    const vH = Math.round(H * vScale)
+    const vW = Math.round(W * vScale)
+    const VY = Math.round((H - vH) / 2)
 
-  if (runtime.adPlaying && adVideo.readyState >= 2) {
-    drawRect(ctx, W, H, config)
-    const { adX, adY, adW, adH } = drawAdVideo(ctx, adVideo, W, H, config)
-    drawBanner(ctx, config, env.bannerImg, adX, adY, adW, adH)
-    drawTimer(ctx, config, adX, adY, adW, adH, runtime.adRemaining)
+    ctx.save()
+    ctx.globalAlpha = Math.min(1, eT * 1.5)
+    ctx.fillStyle = '#0d1b2e'; ctx.fillRect(0, 0, W, H)
+    ctx.globalAlpha = 1
+    ctx.restore()
+
+    ctx.save()
+    ctx.beginPath(); rrect(ctx, VX, VY, vW, vH, Math.round(8 * eT)); ctx.clip()
+    ctx.translate(VX, VY); ctx.scale(vScale, vScale)
+
+    if (ctxVideo.readyState >= 2) drawCtxVideo(ctx, ctxVideo, W, H, config)
+    drawSlideBanner(ctx, env)
+
+    if (runtime.adPlaying && adVideo.readyState >= 2) {
+      drawRect(ctx, W, H, config)
+      const { adX, adY, adW, adH } = drawAdVideo(ctx, adVideo, W, H, config)
+      drawBanner(ctx, config, env.bannerImg, adX, adY, adW, adH)
+      drawTimer(ctx, config, adX, adY, adW, adH, runtime.adRemaining)
+    }
+    drawBannerPanel(ctx, env)
+    drawSlideBannerImage(ctx, env)
+
+    ctx.restore()
+    drawContextPanel(ctx, config, H, panelT)
+    return
   }
 
-  // White panel + banner image after ad overlay so they're always on top.
+  // Idle fallback (shouldn't be reached during export, but keeps it complete).
+  if (ctxVideo.readyState >= 2) drawCtxVideo(ctx, ctxVideo, W, H, config)
+  drawSlideBanner(ctx, env)
   drawBannerPanel(ctx, env)
   drawSlideBannerImage(ctx, env)
 }
@@ -463,6 +576,7 @@ export function useAdExport(
       playing: false,
       countdown: null,
       adStartTime: 0,
+      panelAnimStartTime: 0,
     }
 
     const currentTimeRef = { current: 0 }
