@@ -18,7 +18,9 @@ interface Props {
   onClearUpload: (type: 'ctx' | 'ad') => void
   onClearBanner: () => void
   onClearSlideImg: () => void
-  onSave: () => void
+  activeConfigName?: string
+  onUpdate: () => void
+  onSaveAsNew: () => void
 }
 
 export function Sidebar({
@@ -26,7 +28,7 @@ export function Sidebar({
   ctxUploaded, adUploaded, bannerUploaded, slideImgUploaded,
   onUpload, onBanner, onSlideImg,
   onClearUpload, onClearBanner, onClearSlideImg,
-  onSave,
+  activeConfigName, onUpdate, onSaveAsNew,
 }: Props) {
   return (
     <aside className="sidebar">
@@ -49,9 +51,20 @@ export function Sidebar({
       <AdOverlayCard   config={config} setConfig={setConfig} defaultCollapsed />
       <SlideBannerCard config={config} setConfig={setConfig} defaultCollapsed />
 
-      <button className="save-config-btn" onClick={onSave}>
-        💾 Save Config
-      </button>
+      {activeConfigName ? (
+        <div className="save-config-group">
+          <button className="save-config-btn save-update-btn" onClick={onUpdate}>
+            Update
+          </button>
+          <button className="save-config-btn save-new-btn" onClick={onSaveAsNew}>
+            Save as New
+          </button>
+        </div>
+      ) : (
+        <button className="save-config-btn" onClick={onSaveAsNew}>
+          💾 Save Config
+        </button>
+      )}
     </aside>
   )
 }

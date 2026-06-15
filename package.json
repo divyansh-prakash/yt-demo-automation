@@ -1,5 +1,5 @@
 {
-  "name": "yt-demo-automation",
+  "name": "yt-demo-automation-fe",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -11,7 +11,8 @@
   },
   "dependencies": {
     "react": "^19.2.6",
-    "react-dom": "^19.2.6"
+    "react-dom": "^19.2.6",
+    "sonner": "^2.0.7"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

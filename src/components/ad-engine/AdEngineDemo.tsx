@@ -7,14 +7,13 @@ import type { AdEngineConfig } from '../../types'
 
 interface Props {
   showToast: (msg: string, options?: { color?: string, duration?: number } | string) => void
-  onSave: (config: AdEngineConfig) => void
-  // When a preset is selected in the header, App passes the loaded config here.
-  // Using a wrapper object so the same config can be re-loaded without the
-  // effect being skipped (new object reference always triggers the effect).
+  activeConfigName?: string
+  onUpdate: (config: AdEngineConfig) => Promise<void> | void
+  onSaveAsNew: (config: AdEngineConfig) => Promise<void> | void
   presetToLoad?: { config: AdEngineConfig }
 }
 
-export function AdEngineDemo({ showToast, onSave, presetToLoad }: Props) {
+export function AdEngineDemo({ showToast, activeConfigName, onUpdate, onSaveAsNew, presetToLoad }: Props) {
   const h = useAdEngine(showToast)
   const exporter = useAdExport(showToast, h.getExportSnapshot)
 
@@ -60,7 +59,9 @@ export function AdEngineDemo({ showToast, onSave, presetToLoad }: Props) {
         onClearUpload={h.clearUpload}
         onClearBanner={h.clearBanner}
         onClearSlideImg={h.clearSlideImg}
-        onSave={() => onSave(h.getConfigSnapshot())}
+        activeConfigName={activeConfigName}
+        onUpdate={() => onUpdate(h.getConfigSnapshot())}
+        onSaveAsNew={() => onSaveAsNew(h.getConfigSnapshot())}
       />
 
       <main className="right-col">

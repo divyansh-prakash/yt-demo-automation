@@ -29,6 +29,46 @@
 .mode { display: none; position: relative; z-index: 1; }
 .mode.on { display: block; }
 
+/* ── Confirm Modal ── */
+.confirm-overlay {
+  position: fixed; inset: 0; z-index: 10000;
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+}
+.confirm-modal {
+  background: var(--surface); border: 1px solid var(--border2);
+  border-radius: var(--radius); padding: 28px 32px;
+  max-width: 420px; width: 90%;
+  box-shadow: var(--shadow-md);
+  display: flex; flex-direction: column; gap: 12px;
+}
+.confirm-message {
+  font-size: 15px; font-weight: 700; color: var(--text);
+}
+.confirm-description {
+  font-size: 13px; color: var(--text2); line-height: 1.6;
+}
+.confirm-actions {
+  display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px;
+}
+.confirm-btn-cancel {
+  padding: 8px 18px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border2); background: transparent;
+  color: var(--text2); font-size: 13px; font-weight: 600;
+  cursor: pointer; font-family: var(--font);
+  transition: all .15s;
+}
+.confirm-btn-cancel:hover { background: var(--surface2); color: var(--text); }
+.confirm-btn-confirm {
+  padding: 8px 18px; border-radius: var(--radius-sm);
+  border: none; background: var(--accent);
+  color: #000; font-size: 13px; font-weight: 700;
+  cursor: pointer; font-family: var(--font);
+  transition: background .15s;
+}
+.confirm-btn-confirm:hover { background: var(--accent2); }
+
 /* ── Toast ── */
 .toast {
   position: fixed; bottom: 28px; left: 50%;

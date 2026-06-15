@@ -1,15 +1,14 @@
-import type { Preset } from '../hooks/usePresets'
+import type { StoredConfig } from '../hooks/useConfigs'
 
 interface Props {
   theme: string
   onToggleTheme: () => void
-  presets: Preset[]
+  configs: StoredConfig[]
   activeId: string
-  onSelectPreset: (id: string) => void
-  onAddPreset: () => void
+  onSelectConfig: (id: string) => void
 }
 
-export function Header({ theme, onToggleTheme, presets, activeId, onSelectPreset, onAddPreset }: Props) {
+export function Header({ theme, onToggleTheme, configs, activeId, onSelectConfig }: Props) {
   return (
     <header className="app-header">
       <div className="hdr-logo">
@@ -24,16 +23,12 @@ export function Header({ theme, onToggleTheme, presets, activeId, onSelectPreset
         <select
           className="preset-select"
           value={activeId}
-          onChange={e => onSelectPreset(e.target.value)}
+          onChange={e => onSelectConfig(e.target.value)}
         >
-          {presets.map(p => (
-            <option key={p.id} value={p.id}>{p.name}</option>
+          {configs.map(c => (
+            <option key={c.id} value={c.id}>{c.name}</option>
           ))}
         </select>
-        <div className="preset-divider" />
-        <button className="preset-add" onClick={onAddPreset} title="New config">
-          +
-        </button>
       </div>
 
       <button className="hdr-theme-btn" onClick={onToggleTheme} title="Toggle theme">
