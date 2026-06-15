@@ -10,6 +10,7 @@ interface Props {
   logLines:    LogLine[]
   playerStatus: string
   isExporting: boolean
+  exportProgress: number
   progressPct:  number
   adMarkerPct:     number
   adEndPct:        number
@@ -38,7 +39,7 @@ interface Props {
 }
 
 export function CanvasCard({
-  canvasRef, demoState, logLines, playerStatus, isExporting,
+  canvasRef, demoState, logLines, playerStatus, isExporting, exportProgress,
   progressPct, adMarkerPct, adEndPct, ctxDuration, trimIn, trimOut,
   currentTime, totalTime, exportFormat, ctxUploaded, adUploaded,
   onRun, onPlay, onReplay, onResetPreview, onSeek, onExport, onExportFormatChange, onTrimDrag, onPreviewTrim,
@@ -56,11 +57,6 @@ export function CanvasCard({
   const hasRequiredMedia = !!(ctxUploaded && adUploaded)
   const zoom             = ZOOM_STEPS[zoomIdx]
   const isPlaying        = ['Playing', 'Ad Playing', 'Scanning…', 'Recording Trim…'].includes(playerStatus)
-
-  const handleProgClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect()
-    onSeek((e.clientX - rect.left) / rect.width)
-  }
 
   const handlePtlMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     const track = e.currentTarget
@@ -193,6 +189,7 @@ export function CanvasCard({
             <DownloadControls
               exportFormat={exportFormat}
               isExporting={isExporting}
+              exportProgress={exportProgress}
               disabled={!hasRequiredMedia}
               onExportFormatChange={onExportFormatChange}
               onExport={onExport}

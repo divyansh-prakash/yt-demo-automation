@@ -555,6 +555,7 @@ export function useAdExport(
 ) {
   const [exportFormat, setExportFormat] = useState<ExportFormat>('webm')
   const [isExporting, setIsExporting] = useState(false)
+  const [exportProgress, setExportProgress] = useState(0)
   const cleanupRef = useRef<(() => void) | null>(null)
 
   useEffect(() => {
@@ -601,6 +602,7 @@ export function useAdExport(
     }
 
     const currentTimeRef = { current: 0 }
+    let totalDur = 0
     let rafId: number | null = null
     let actx: AudioContext | null = null
     let dest: MediaStreamAudioDestinationNode | null = null
@@ -627,9 +629,16 @@ export function useAdExport(
       adVideo.load()
       dest?.stream.getTracks().forEach(t => t.stop())
       actx?.close().catch(() => {})
+      if (progressRafId) { cancelAnimationFrame(progressRafId); progressRafId = null }
       cleanupRef.current = null
     }
     cleanupRef.current = cleanup
+
+    let progressRafId: number | null = null
+    const trackProgress = () => {
+      if (totalDur > 0) setExportProgress(Math.min(1, currentTimeRef.current / totalDur))
+      progressRafId = requestAnimationFrame(trackProgress)
+    }
 
     const renderLoop = () => {
       if (runtime.scanning) {
@@ -643,6 +652,10 @@ export function useAdExport(
 
     try {
       await Promise.all([waitForMetadata(ctxVideo), waitForMetadata(adVideo)])
+
+      totalDur = ctxVideo.duration + runtime.adDur
+      setExportProgress(0)
+      progressRafId = requestAnimationFrame(trackProgress)
 
       actx = new AudioContext()
       dest = actx.createMediaStreamDestination()
@@ -776,6 +789,7 @@ export function useAdExport(
     } finally {
       cleanup()
       setIsExporting(false)
+      setExportProgress(0)
     }
   }
 
@@ -783,6 +797,7 @@ export function useAdExport(
     exportFormat,
     setExportFormat,
     isExporting,
+    exportProgress,
     downloadDemo,
   }
 }

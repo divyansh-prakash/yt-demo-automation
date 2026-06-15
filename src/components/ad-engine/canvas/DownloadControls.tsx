@@ -3,6 +3,7 @@ import type { ExportFormat } from '../../../types'
 interface Props {
   exportFormat: ExportFormat
   isExporting: boolean
+  exportProgress: number
   disabled: boolean
   onExportFormatChange: (format: ExportFormat) => void
   onExport: (format: ExportFormat) => void
@@ -11,6 +12,7 @@ interface Props {
 export function DownloadControls({
   exportFormat,
   isExporting,
+  exportProgress,
   disabled,
   onExportFormatChange,
   onExport,
@@ -32,8 +34,24 @@ export function DownloadControls({
         className="tl-btn export canvas-download-btn"
         onClick={() => onExport(exportFormat)}
         disabled={disabled || isExporting}
+        style={{ position: 'relative', overflow: 'hidden' }}
       >
-        {isExporting ? '⏺ Recording…' : '⬇ Download'}
+        {isExporting && (
+          <span
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background: 'var(--green)',
+              opacity: 0.18,
+              transformOrigin: 'left',
+              transform: `scaleX(${exportProgress})`,
+              transition: 'transform 0.2s linear',
+            }}
+          />
+        )}
+        <span style={{ position: 'relative' }}>
+          {isExporting ? `⬇ Downloading… ${Math.round(exportProgress * 100)}%` : '⬇ Download'}
+        </span>
       </button>
     </div>
   )

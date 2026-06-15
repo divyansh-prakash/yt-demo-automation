@@ -71,6 +71,7 @@ export function AdEngineDemo({ showToast, activeConfigName, onUpdate, onSaveAsNe
           logLines={h.logLines}
           playerStatus={h.playerStatus}
           isExporting={exporter.isExporting}
+          exportProgress={exporter.exportProgress}
           progressPct={h.progressPct}
           adMarkerPct={h.adMarkerPct}
           adEndPct={h.adEndPct}
