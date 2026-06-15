@@ -272,7 +272,7 @@ export function CanvasCard({
                 <div className="tl-li"><div className="tl-dot" style={{ background: 'var(--blue)' }} />Playhead</div>
               </div>
 
-              <div className="tl-bar" onClick={handleProgClick}>
+              <div className="tl-bar" onMouseDown={handlePtlMouseDown}>
                 <div className="tl-fill" style={{ width: `${progressPct}%` }} />
                 {adMarkerPct > 0 && (
                   <div className="tl-marker" style={{ left: `${adMarkerPct}%`, background: 'var(--amber)' }} />

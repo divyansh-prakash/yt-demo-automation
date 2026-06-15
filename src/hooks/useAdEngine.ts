@@ -953,7 +953,8 @@ const ctxVidRef     = useRef<HTMLVideoElement>(null)
 
   function seekTo(pct: number) {
     const s = ST.current, v = ctxVidRef.current
-    if (!v || !v.duration || s.scanning) return
+    if (!v || !v.duration) return
+    if (s.scanning) { s.scanning = false; s.scanAlpha = 0 }
 
     // s.ctxDur is only set once a demo starts; fall back to video duration in idle
     const ctxDur  = s.ctxDur > 0 ? s.ctxDur : v.duration
@@ -967,14 +968,55 @@ const ctxVidRef     = useRef<HTMLVideoElement>(null)
     if (adDur > 0 && virtualTime >= s.adTriggerSec && virtualTime < s.adTriggerSec + adDur) {
       const adElapsed = virtualTime - s.adTriggerSec
       const av = adVidRef.current
+
+      // Clear any existing countdown
+      if (s.countdown) { clearInterval(s.countdown); s.countdown = null }
+
+      // Freeze ctxVideo at the trigger point
+      v.pause()
+      v.currentTime = s.adTriggerSec
+
       if (av && av.duration) {
         av.currentTime = Math.max(0, Math.min(av.duration, (adElapsed / adDur) * av.duration))
       }
-      // Shift adStartTime so the countdown stays accurate after the seek
+
+      s.adTriggered      = true
+      s.adPlaying        = true
+      s.bannerTriggered  = true
       s.adStartTime      = Date.now() - adElapsed * 1000
       s.adElapsedAtPause = adElapsed
       s.adRemaining      = Math.max(0, adDur - Math.floor(adElapsed))
       currentTimeRef.current = virtualTime
+
+      // Start ad video and countdown if demo is running
+      if (demoStateRef.current === 'running' && av) {
+        av.muted = false
+        void av.play()
+        // Build adEnd if not already set (seek happened before natural trigger)
+        if (!adEndRef.current) {
+          const cv = ctxVidRef.current!
+          const adEnd = () => {
+            if (!s.adPlaying) return
+            adEndRef.current = null
+            clearInterval(s.countdown!); s.countdown = null
+            s.adPlaying = false
+            av.pause(); av.onended = null
+            addLog('✅', 'Ad complete — context video resumed')
+            setStatus('Playing'); cv.play(); s.playing = true
+          }
+          adEndRef.current = adEnd
+        }
+        const endFn = adEndRef.current!
+        s.countdown = setInterval(() => {
+          const e = (Date.now() - s.adStartTime) / 1000
+          s.adRemaining = Math.max(0, adDur - Math.floor(e))
+          if (e >= adDur) endFn()
+        }, 250)
+        av.onended = () => {
+          const e = (Date.now() - s.adStartTime) / 1000
+          if (e < adDur) { av.currentTime = 0; void av.play() } else endFn()
+        }
+      }
       return
     }
 

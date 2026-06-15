@@ -28,7 +28,6 @@ interface ExportEnv {
   config: AdEngineConfig
   runtime: ExportRuntime
   currentTimeRef: { current: number }
-  scratchCanvas: HTMLCanvasElement
 }
 
 const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms))
@@ -318,9 +317,8 @@ function drawScanOverlay(ctx: CanvasRenderingContext2D, W: number, H: number, al
 }
 
 
-// Mask animation only. Called BEFORE ad overlay so scratch captures clean video.
 function drawSlideBanner(ctx: CanvasRenderingContext2D, env: ExportEnv) {
-  const { config, runtime, slideImg, currentTimeRef, scratchCanvas } = env
+  const { config, runtime, slideImg, currentTimeRef, ctxVideo } = env
   const { maskX: mx, maskY: my, maskW: mw, maskH: mh } = config
   if (!slideImg || !runtime.bannerTriggered) return
 
@@ -329,17 +327,13 @@ function drawSlideBanner(ctx: CanvasRenderingContext2D, env: ExportEnv) {
   if (sP <= 0) return
 
   const ep = applyEasing(sP, config.easing)
-  let dx = 0, dy = 0
-  if (config.slideDir === 'up') dy = -config.slideAmt * ep
-  else if (config.slideDir === 'down') dy = config.slideAmt * ep
-  else if (config.slideDir === 'left') dx = -config.slideAmt * ep
-  else dx = config.slideAmt * ep
+  let sx = 0, sy = 0
+  if (config.slideDir === 'up') sy = -config.slideAmt * ep
+  else if (config.slideDir === 'down') sy = config.slideAmt * ep
+  else if (config.slideDir === 'left') sx = -config.slideAmt * ep
+  else sx = config.slideAmt * ep
 
-  if (scratchCanvas.width !== mw || scratchCanvas.height !== mh) {
-    scratchCanvas.width = mw; scratchCanvas.height = mh
-  }
-  const sc = scratchCanvas.getContext('2d')
-  if (sc) { sc.clearRect(0, 0, mw, mh); sc.drawImage(ctx.canvas, mx, my, mw, mh, 0, 0, mw, mh) }
+  const W = env.canvas.width, H = env.canvas.height
 
   ctx.save()
   ctx.beginPath(); ctx.rect(mx, my, mw, mh); ctx.clip()
@@ -347,45 +341,68 @@ function drawSlideBanner(ctx: CanvasRenderingContext2D, env: ExportEnv) {
   ctx.fillStyle = config.panelColor
   ctx.fillRect(mx, my, mw, mh)
   ctx.globalAlpha = 1
-  ctx.drawImage(scratchCanvas, 0, 0, mw, mh, mx + dx, my + dy, mw, mh)
+  ctx.translate(sx, sy)
+  if (ctxVideo.readyState >= 2) drawCtxVideo(ctx, ctxVideo, W, H, config)
   ctx.restore()
 }
 
-// White panel — independent layer, drawn AFTER ad overlay so it's always on top.
 function drawBannerPanel(ctx: CanvasRenderingContext2D, env: ExportEnv) {
   const { config, runtime, slideImg, currentTimeRef } = env
   if (!slideImg || !runtime.bannerTriggered) return
 
+  const { maskX: mx, maskY: my, maskW: mw, maskH: mh } = config
   const elapsed = Math.max(0, currentTimeRef.current - runtime.bannerTriggerSec)
-  const alpha = Math.min(1, elapsed * 3)
-  if (alpha <= 0) return
+  const sP = Math.min(1, elapsed / Math.max(0.001, config.slideDur))
+  if (sP <= 0) return
+  const ep = applyEasing(sP, config.easing)
+
+  let ptx = 0, pty = 0
+  if      (config.slideDir === 'down')  pty = -config.slideAmt * (1 - ep)
+  else if (config.slideDir === 'up')    pty =  config.slideAmt * (1 - ep)
+  else if (config.slideDir === 'right') ptx = -config.slideAmt * (1 - ep)
+  else                                  ptx =  config.slideAmt * (1 - ep)
 
   ctx.save()
-  ctx.globalAlpha = alpha * config.panelOpacity
+  ctx.globalAlpha = config.panelOpacity
   ctx.fillStyle = config.panelColor
-  ctx.fillRect(config.bannerPanelX, config.bannerPanelY, config.bannerPanelW, config.bannerPanelH)
+  ctx.beginPath(); ctx.rect(mx, my, mw, mh); ctx.clip()
+  ctx.translate(ptx, pty)
+  if (config.bannerPanelRadius) {
+    ctx.beginPath()
+    rrect(ctx, config.bannerPanelX, config.bannerPanelY, config.bannerPanelW, config.bannerPanelH, config.bannerPanelRadius)
+    ctx.fill()
+  } else {
+    ctx.fillRect(config.bannerPanelX, config.bannerPanelY, config.bannerPanelW, config.bannerPanelH)
+  }
   ctx.globalAlpha = 1
   ctx.restore()
 }
 
-// Banner image — independent layer, drawn on top of white panel.
 function drawSlideBannerImage(ctx: CanvasRenderingContext2D, env: ExportEnv) {
   const { config, runtime, slideImg, currentTimeRef } = env
   if (!slideImg || !runtime.bannerTriggered) return
 
+  const { maskX: mx, maskY: my, maskW: mw, maskH: mh } = config
   const elapsed = Math.max(0, currentTimeRef.current - runtime.bannerTriggerSec)
-  const alpha = Math.min(1, elapsed * 3)
-  if (alpha <= 0) return
+  const sP = Math.min(1, elapsed / Math.max(0.001, config.slideDur))
+  if (sP <= 0) return
+  const ep = applyEasing(sP, config.easing)
+
+  let ptx = 0, pty = 0
+  if      (config.slideDir === 'down')  pty = -config.slideAmt * (1 - ep)
+  else if (config.slideDir === 'up')    pty =  config.slideAmt * (1 - ep)
+  else if (config.slideDir === 'right') ptx = -config.slideAmt * (1 - ep)
+  else                                  ptx =  config.slideAmt * (1 - ep)
 
   const aw = config.bannerPanelW * config.slideImgScale
-  const ah = (slideImg.height / slideImg.width) * aw
+  const ah = slideImg.naturalWidth > 0 ? (slideImg.naturalHeight / slideImg.naturalWidth) * aw : aw
   const ax = config.bannerPanelX + (config.bannerPanelW - aw) / 2 + config.slideImgOffX
   const ay = config.bannerPanelY + (config.bannerPanelH - ah) / 2 + config.slideImgOffY
 
   ctx.save()
-  ctx.globalAlpha = alpha
+  ctx.beginPath(); ctx.rect(mx, my, mw, mh); ctx.clip()
+  ctx.translate(ptx, pty)
   ctx.drawImage(slideImg, ax, ay, aw, ah)
-  ctx.globalAlpha = 1
   ctx.restore()
 }
 
@@ -399,9 +416,13 @@ function drawFrame(env: ExportEnv) {
   ctx.clearRect(0, 0, W, H)
   // Advance virtual time using wall-clock during the ad so the slide banner
   // animation progresses even though ctxVideo is paused at adTriggerSec.
+  // After ad ends, add adDur offset so elapsed time never resets to 0
+  // (which would re-trigger the slide banner animation).
   if (runtime.adPlaying && runtime.adStartTime > 0) {
     const adElapsed = (Date.now() - runtime.adStartTime) / 1000
     currentTimeRef.current = runtime.adTriggerSec + adElapsed
+  } else if (runtime.adTriggered && !runtime.adPlaying) {
+    currentTimeRef.current = ctxVideo.currentTime + runtime.adDur
   } else {
     currentTimeRef.current = ctxVideo.currentTime
   }
@@ -583,7 +604,6 @@ export function useAdExport(
     let rafId: number | null = null
     let actx: AudioContext | null = null
     let dest: MediaStreamAudioDestinationNode | null = null
-    const scratchCanvas = document.createElement('canvas')
 
     const env: ExportEnv = {
       canvas,
@@ -592,7 +612,6 @@ export function useAdExport(
       bannerImg: snapshot.bannerImg,
       slideImg: snapshot.slideImg,
       config: snapshot.config,
-      scratchCanvas,
       runtime,
       currentTimeRef,
     }
@@ -671,9 +690,7 @@ export function useAdExport(
       runtime.scanning = false
       runtime.scanAlpha = 0
 
-      await seekAndWait(ctxVideo, 0)
       ctxVideo.muted = false
-      await ctxVideo.play()
       runtime.playing = true
 
       await new Promise<void>(resolve => {
@@ -732,10 +749,10 @@ export function useAdExport(
 
       await sleep(300)
 
+      let downloadSucceeded = false
       await new Promise<void>(resolve => {
         recorder.onstop = () => {
           if (!chunks.length) {
-            showToast('No recording data', '#ef4444')
             resolve()
             return
           }
@@ -743,11 +760,17 @@ export function useAdExport(
           const url = URL.createObjectURL(blob)
           triggerDownload(url, `ad-engine-demo.${actualFormat}`)
           setTimeout(() => URL.revokeObjectURL(url), 30000)
-          showToast(actualFormat === 'mp4' ? 'Demo downloaded as MP4.' : 'Demo downloaded as WebM.', { color: '#39e88f', duration: 2800 })
+          downloadSucceeded = true
           resolve()
         }
         recorder.stop()
       })
+
+      if (downloadSucceeded) {
+        showToast(actualFormat === 'mp4' ? 'Demo downloaded as MP4.' : 'Demo downloaded as WebM.', { color: '#39e88f', duration: 2800 })
+      } else {
+        showToast('No recording data captured.', '#ef4444')
+      }
     } catch {
       showToast('Export failed. Please try again.', '#ef4444')
     } finally {
